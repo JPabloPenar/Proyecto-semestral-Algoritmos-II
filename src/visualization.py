@@ -1,279 +1,211 @@
-import tkinter as tk
-from dataclasses import dataclass
-from vehicles import vehicle, jeep, moto, auto, camion
-
-# ---------- Configuración visual ----------
-BG_APP = "#e3f0ff"
-PANEL_BG = "#cfeff7"
-TERRAIN_BG = "#ffb578"
-BAR_BG = "#cfe2ff"
-BORDER = "#333333"
-
-W, H = 1000, 620
-SIDE_W = 150
-BOTTOM_H = 80
-
-TERRAIN_W = W - SIDE_W * 2 - 20
-TERRAIN_H = H - BOTTOM_H - 40
-
-VEHICLES = ["jeep", "moto", "camion", "auto"]
-
-@dataclass
-class SpawnSpec:
-    kind: str
-    x: int
-    y: int
-    side: str   # "left" o "right"
-
-# ---------------- Clase principal ----------------
-class GameUI(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Proyecto final - Interfaz de juego (Tkinter)")
-        self.geometry(f"{W}x{H}")
-        self.configure(bg=BG_APP)
-
-        self.vehicles = []  # Lista de objetos vehicle
-
-        self._make_layout()
-        self._draw_side_palettes()
-        self._draw_terrain_static()
-        self._bind_drag()
-        self._colocar_vehiculos_iniciales()
-
-    # ===== Layout =====
-    def _make_layout(self):
-        # Panel izquierdo
-        self.left = tk.Canvas(self, width=SIDE_W, height=H - BOTTOM_H - 20,
-                              bg=PANEL_BG, highlightthickness=2, highlightbackground=BORDER)
-        self.left.place(x=10, y=10)
-
-        # Panel derecho
-        self.right = tk.Canvas(self, width=SIDE_W, height=H - BOTTOM_H - 20,
-                               bg=PANEL_BG, highlightthickness=2, highlightbackground=BORDER)
-        self.right.place(x=W - SIDE_W-10, y=10)
-
-        # Terreno central
-        self.terrain = tk.Canvas(self, width=TERRAIN_W-20, height=TERRAIN_H,
-                                 bg=TERRAIN_BG, highlightthickness=2, highlightbackground=BORDER)
-        self.terrain.place(x=SIDE_W + 20, y=10)
-
-        # Barra inferior con botones
-        self.bottom = tk.Frame(self, bg=BAR_BG, height=BOTTOM_H, bd=2, relief="ridge")
-        self.bottom.pack(side="bottom", fill="x")
-
-        btns = [
-            ("Init", self.on_init),
-            ("<<", self.on_step_back),
-            ("Play", self.on_play),
-            (">>", self.on_step_fwd),
-            ("Stop", self.on_stop),
-        ]
-        for text, cmd in btns:
-            b = tk.Button(self.bottom, text=text, command=cmd,
-                          font=("Segoe UI", 12, "bold"), width=10)
-            b.pack(side="left", padx=18, pady=18)
-
-    # ===== Paletas laterales =====
-    def _draw_side_palettes(self):
-        self.left.create_text(SIDE_W/2, 18, text="Base 1", font=("Segoe UI", 14, "bold"))
-        self.right.create_text(SIDE_W/2, 18, text="Base 2", font=("Segoe UI", 14, "bold"))
-
-        y_positions = [70, 160, 250, 340]
-        for side_canvas, side_name in [(self.left, "left"), (self.right, "right")]:
-            for y, kind in zip(y_positions, VEHICLES):
-                self._draw_vehicle_icon(side_canvas, SIDE_W//2, y, kind, palette=True, side=side_name)
-
-    # ===== Colocar vehículos iniciales =====
-    def _colocar_vehiculos_iniciales(self):
-        posicion = 25
-        incremento = 50
-
-#Equipo 1:
-        # Jeep
-        for i in range(3):
-            v = self._draw_vehicle_icon(self.terrain, 50, posicion, "jeep", equipo=1)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Moto
-        for i in range(2):
-            v = self._draw_vehicle_icon(self.terrain, 50, posicion, "moto", equipo=1)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Camion
-        for i in range(2):
-            v = self._draw_vehicle_icon(self.terrain, 50, posicion, "camion", equipo=1)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Auto
-        for i in range(3):
-            v = self._draw_vehicle_icon(self.terrain, 50, posicion, "auto", equipo=1)
-            self.vehicles.append(v)
-            posicion += incremento
-        posicion=25
-#Equipo 2:
-        # Jeep
-        for i in range(3):
-            v = self._draw_vehicle_icon(self.terrain, 620, posicion, "jeep", equipo=2)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Moto
-        for i in range(2):
-            v = self._draw_vehicle_icon(self.terrain, 620, posicion, "moto", equipo=2)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Camion
-        for i in range(2):
-            v = self._draw_vehicle_icon(self.terrain, 620, posicion, "camion", equipo=2)
-            self.vehicles.append(v)
-            posicion += incremento
-
-        # Auto
-        for i in range(3):
-            v = self._draw_vehicle_icon(self.terrain, 620, posicion, "auto", equipo=2)
-            self.vehicles.append(v)
-            posicion += incremento
+import pygame
+import sys
 
 
-    # ===== Dibujo de vehículos =====
-    def _draw_vehicle_icon(self, canvas, x, y, kind, palette=False, side="left", equipo=None):
-        tag = f"veh_{kind}_{x}_{y}" if not palette else f"icon_{kind}_{side}"
-        if equipo==1:
-            color="#ff0000"
-        elif equipo==2:
-            color="#0400ff"
-        elif equipo==None:
-            color="#000000"
+# --- Configuración y Constantes ---
+pygame.init()
 
-        # Dibujar forma y crear objeto
-        if kind == "jeep":
-            canvas.create_polygon(
-                x, y - 8,
-                x - 9, y - 2,
-                x - 7, y + 7,
-                x + 7, y + 7,
-                x + 9, y - 2,
-                fill=color, outline="", tags=tag
-            )
-            obj = jeep(canvas, x, y, tag, equipo)
+# Definición de Colores (RGB)
+BLANCO = (255, 255, 255)
+NEGRO = (0, 0, 0)
+ROSA_CLARO = (255, 220, 230)
+VERDE_INIT = (173, 255, 173)
+AMARILLO_PLAY = (255, 255, 153)
+GRIS_STOP = (200, 200, 200)
+GRIS_OSCURO_BOTONES = (180, 180, 180)
+TERRENO_FONDO = (250, 250, 250)
 
-        elif kind == "moto":
-            canvas.create_polygon(
-                x, y - 8,
-                x - 7, y + 4,
-                x + 7, y + 4,
-                fill=color, outline="", tags=tag
-            )
-            obj = moto(canvas, x, y, tag, equipo)
+# Colores para representar los vehículos
+COLOR_JEEP = (0, 100, 0)      # Verde oscuro
+COLOR_MOTO = (255, 165, 0)    # Naranja
+COLOR_TRUCK = (255, 0, 0)     # Rojo
+COLOR_CAR = (0, 0, 255)       # Azul
 
-        elif kind == "camion":
-            canvas.create_rectangle(
-                x - 10, y - 7, x + 10, y + 7,
-                fill=color, outline="", tags=tag
-            )
-            obj = camion(canvas, x, y, tag, equipo)
+# Dimensiones de la Ventana
+ANCHO_VENTANA = 800
+ALTO_VENTANA = 600
+VENTANA_TAMANIO = (ANCHO_VENTANA, ALTO_VENTANA)
 
-        elif kind == "auto":
-            canvas.create_oval(
-                x - 8, y - 5, x + 8, y + 5,
-                fill=color, outline="", tags=tag
-            )
-            obj = auto(canvas, x, y, tag, equipo)
+# Creación de la Ventana
+ventana = pygame.display.set_mode(VENTANA_TAMANIO)
+pygame.display.set_caption("Simulador de Rescate - Interfaz")
 
-        else:
-            obj = None
+# Reloj para controlar la velocidad del juego
+reloj = pygame.time.Clock()
 
-        # Si es paleta, bind click
-        if palette:
-            canvas.tag_bind(tag, "<Button-1>",
-                            lambda e, k=kind, s=side: self.spawn_from_palette(
-                                SpawnSpec(k, 70 if s=="left" else TERRAIN_W-70, 80, s)))
-            canvas.create_text(x, y+38, text=kind.capitalize(), font=("Segoe UI", 9), fill="#333")
+# --- Rectángulos de la Interfaz ---
+ANCHO_BASE = 150
+ALTO_BASE = 350
+ANCHO_TERRENO = ANCHO_VENTANA - (2 * ANCHO_BASE)
+ALTO_TERRENO = ALTO_BASE
+MARGEN_SUPERIOR = 50
+ESPACIO_CENTRAL = 50 
 
-        return obj
+# Rectángulos principales (Base, Terreno, Base)
+rect_base1 = pygame.Rect(0, MARGEN_SUPERIOR, ANCHO_BASE, ALTO_BASE)
+rect_terreno = pygame.Rect(ANCHO_BASE, MARGEN_SUPERIOR, ANCHO_TERRENO, ALTO_TERRENO)
+rect_base2 = pygame.Rect(ANCHO_BASE + ANCHO_TERRENO, MARGEN_SUPERIOR, ANCHO_BASE, ALTO_BASE)
 
-    # ===== Terreno estático y minas =====
-    def _draw_terrain_static(self):
-        self.terrain.create_text(TERRAIN_W/2, 18, text="Terreno de Acción",
-                                 font=("Segoe UI", 16, "bold"))
+# Rectángulos de los botones
+ALTO_BOTON = 50
+ANCHO_BOTON = 100
+MARGEN_HORIZONTAL_BOTONES = 20
+MARGEN_VERTICAL_BOTONES = rect_terreno.bottom + ESPACIO_CENTRAL
 
-        def mine_circle(x, y, r, label):
-            self.terrain.create_oval(x-r, y-r, x+r, y+r, fill="#6c8a6b", outline=BORDER)
-            self.terrain.create_oval(x-r+10, y-r+10, x+r-10, y+r-10, fill="#3f5c3f", outline=BORDER)
-            self.terrain.create_text(x, y-28, text=f"Mina {label}", font=("Segoe UI", 12, "bold"))
+# Posiciones centradas para los botones
+x_centro_terreno = rect_terreno.left + ANCHO_TERRENO / 2
+x_init = x_centro_terreno - 2.5 * ANCHO_BOTON - 2 * MARGEN_HORIZONTAL_BOTONES
+x_prev = x_centro_terreno - 1.5 * ANCHO_BOTON - MARGEN_HORIZONTAL_BOTONES
+x_play = x_centro_terreno - 0.5 * ANCHO_BOTON
+x_next = x_centro_terreno + 0.5 * ANCHO_BOTON + MARGEN_HORIZONTAL_BOTONES
+x_stop = x_centro_terreno + 1.5 * ANCHO_BOTON + 2 * MARGEN_HORIZONTAL_BOTONES
 
-        def mine_tripwire(x1, y1, x2, y2, label):
-            self.terrain.create_line(x1, y1, x2, y2, width=4, fill="#aaa")
-            self.terrain.create_text((x1+x2)//2, min(y1, y2)-18, text=f"Mina {label}", font=("Segoe UI", 12, "bold"))
+rect_init = pygame.Rect(x_init, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
+rect_prev = pygame.Rect(x_prev, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
+rect_play = pygame.Rect(x_play, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
+rect_next = pygame.Rect(x_next, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
+rect_stop = pygame.Rect(x_stop, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
 
-        mine_circle(180, 120, 42, "O1")
-        mine_circle(360, 110, 26, "O2")
-        mine_tripwire(120, 220, 220, 220, "T1")
-        mine_tripwire(320, 200, 320, 300, "T2")
+# Diccionario de botones para manejo de clics
+botones = {
+    "Init": {"rect": rect_init, "message": "Inicializando el mapa: Distribución Aleatoria."},
+    "<<": {"rect": rect_prev, "message": "Modo Replay: Retroceso de un paso."},
+    "Play": {"rect": rect_play, "message": "Iniciando/Reanudando la Simulación."},
+    ">>": {"rect": rect_next, "message": "Modo Replay: Avance de un paso."},
+    "Stop": {"rect": rect_stop, "message": "Deteniendo la Simulación."}
+}
 
-        xg, yg, rg = 120, 320, 42
-        self.terrain.create_oval(xg-rg, yg-rg, xg+rg, yg+rg, fill="#b8c1cc", outline=BORDER)
-        self.terrain.create_oval(xg-18, yg-18, xg+18, yg+18, fill="#7c8794", outline=BORDER)
-        self.terrain.create_line(xg, yg-14, xg, yg+14, width=3)
-        self.terrain.create_text(xg, yg-58, text="Mina G1", font=("Segoe UI", 12, "bold"))
+# --- Fuentes ---
+fuente_titulo = pygame.font.Font(None, 24)
+fuente_boton = pygame.font.Font(None, 30)
 
-    # ===== Spawn desde paleta =====
-    def spawn_from_palette(self, spec: SpawnSpec):
-        x, y = spec.x, spec.y
-        obj = self._draw_vehicle_icon(self.terrain, x, y, spec.kind, palette=False, equipo=1)
-        self.vehicles.append(obj)
+# --- Funciones de Dibujo ---
+def draw_vehicle(surface, vehicle_type, color, x, y):
+    """Dibuja una representación de un vehículo."""
+    
+    # NUEVAS DIMENSIONES
+    VEHICLE_WIDTH = 30 
+    VEHICLE_HEIGHT = 18
+    WHEEL_RADIUS = 3
+    
+    if vehicle_type == "Jeep":
+        # Rectángulo (cuerpo)
+        pygame.draw.rect(surface, color, (x, y, VEHICLE_WIDTH, VEHICLE_HEIGHT), border_radius=3)
+        # Ruedas
+        pygame.draw.circle(surface, NEGRO, (x + 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
+        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
+        
+    elif vehicle_type == "Moto":
+        # Cuerpo delgado y ruedas más pequeñas
+        pygame.draw.line(surface, color, (x, y + 8), (x + VEHICLE_WIDTH - 5, y + 8), 4)
+        pygame.draw.circle(surface, NEGRO, (x + 4, y + 12), WHEEL_RADIUS)
+        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 8, y + 12), WHEEL_RADIUS)
+        
+    elif vehicle_type == "Truck":
+        # Rectángulo más largo y alto (camión)
+        TRUCK_WIDTH = 40
+        TRUCK_HEIGHT = 20
+        pygame.draw.rect(surface, color, (x, y, TRUCK_WIDTH, TRUCK_HEIGHT), border_radius=4)
+        # Ruedas
+        pygame.draw.circle(surface, NEGRO, (x + 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
+        pygame.draw.circle(surface, NEGRO, (x + TRUCK_WIDTH - 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
+        
+    elif vehicle_type == "Car":
+        # Rectángulo más plano y bajo
+        CAR_HEIGHT = 15
+        pygame.draw.rect(surface, color, (x, y + 3, VEHICLE_WIDTH - 5, CAR_HEIGHT), border_radius=3)
+        # Ruedas
+        pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
+        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
 
-        last_items = self.terrain.find_all()[-4:]
-        drag_tag = f"draggable_{last_items[-1]}"
-        for it in last_items:
-            self.terrain.addtag_withtag(drag_tag, it)
+def draw_fleets(surface, base_rect):
+    """Dibuja la flota de 10 vehículos en la base, usando menor espaciado."""
+    
+    # Lista de 10 vehículos
+    fleet_composition = [
+        ("Jeep", COLOR_JEEP), ("Jeep", COLOR_JEEP), ("Jeep", COLOR_JEEP),
+        ("Moto", COLOR_MOTO), ("Moto", COLOR_MOTO),
+        ("Truck", COLOR_TRUCK), ("Truck", COLOR_TRUCK),
+        ("Car", COLOR_CAR), ("Car", COLOR_CAR), ("Car", COLOR_CAR)
+    ]
+    
+    start_x = base_rect.left + 10
+    start_y = base_rect.top + 20
+    # Espacio vertical reducido
+    spacing = 30 
 
-        self.terrain.move(drag_tag, 0, 30)
-        self.terrain.tag_bind(drag_tag, "<Button-1>", self._on_drag_start)
-        self.terrain.tag_bind(drag_tag, "<B1-Motion>", self._on_drag_move)
+    for i, (v_type, color) in enumerate(fleet_composition):
+        y_pos = start_y + i * spacing
+        draw_vehicle(surface, v_type, color, start_x, y_pos)
+        
+# --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
+ejecutando = True
+while ejecutando:
+    # 1. Procesamiento de Eventos
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            ejecutando = False
+        
+        # Manejo de Clics del Mouse
+        if evento.type == pygame.MOUSEBUTTONDOWN:
+            mouse_pos = evento.pos
+            
+            # Verificar si se hizo clic en algún botón
+            for name, data in botones.items():
+                if data["rect"].collidepoint(mouse_pos):
+                    print(f"BOTÓN PRESIONADO: {name} | Acción: {data['message']}")
+                    # Aquí iría la llamada a la función del GameEngine (e.g., engine.init_game())
 
-    # ===== Drag genérico =====
-    def _bind_drag(self):
-        self.drag_data = {"x": 0, "y": 0, "tag": None}
+    # 2. Lógica del Juego (Vacía por ahora)
+    
+    # 3. Dibujo
+    ventana.fill(BLANCO)
 
-    def _on_drag_start(self, event):
-        self.drag_data["x"] = event.x
-        self.drag_data["y"] = event.y
-        tags = self.terrain.gettags("current")
-        dd = [t for t in tags if t.startswith("draggable_")]
-        self.drag_data["tag"] = dd[0] if dd else None
+    # A. Dibujar Bases y Terreno de Acción
+    # Bases (Fondo rosa claro con borde negro)
+    pygame.draw.rect(ventana, ROSA_CLARO, rect_base1, border_radius=10)
+    pygame.draw.rect(ventana, NEGRO, rect_base1, 2, border_radius=10)
+    pygame.draw.rect(ventana, ROSA_CLARO, rect_base2, border_radius=10)
+    pygame.draw.rect(ventana, NEGRO, rect_base2, 2, border_radius=10)
 
-    def _on_drag_move(self, event):
-        if not self.drag_data["tag"]:
-            return
-        dx = event.x - self.drag_data["x"]
-        dy = event.y - self.drag_data["y"]
-        self.terrain.move(self.drag_data["tag"], dx, dy)
-        self.drag_data["x"] = event.x
-        self.drag_data["y"] = event.y
+    # Terreno de Acción (Fondo blanco/gris con borde rosa claro)
+    pygame.draw.rect(ventana, TERRENO_FONDO, rect_terreno, border_radius=10)
+    pygame.draw.rect(ventana, ROSA_CLARO, rect_terreno, 4, border_radius=10)
 
-    # ===== Botones =====
-    def on_init(self):
-        self.terrain.delete("all")
-        self._draw_terrain_static()
+    # B. Dibujar Títulos
+    texto_base1 = fuente_titulo.render("Base 1", True, NEGRO)
+    texto_terreno = fuente_titulo.render("Terreno de Accion", True, NEGRO)
+    texto_base2 = fuente_titulo.render("Base 2", True, NEGRO)
 
-    def on_play(self):
-        print("[Play] Lógica de simulación aquí")
+    ventana.blit(texto_base1, (rect_base1.centerx - texto_base1.get_width() // 2, rect_base1.top - 20))
+    ventana.blit(texto_terreno, (rect_terreno.centerx - texto_terreno.get_width() // 2, rect_terreno.top - 20))
+    ventana.blit(texto_base2, (rect_base2.centerx - texto_base2.get_width() // 2, rect_base2.top - 20))
 
-    def on_stop(self):
-        print("[Stop] Detener simulación")
+    # C. Dibujar la Flota de Vehículos en ambas bases
+    draw_fleets(ventana, rect_base1)
+    draw_fleets(ventana, rect_base2)
+    
+    # D. Dibujar Botones de Control y su Texto
+    for name, data in botones.items():
+        rect = data["rect"]
+        color = BLANCO 
+        if name == "Init": color = VERDE_INIT
+        elif name == "Play": color = AMARILLO_PLAY
+        elif name == "Stop": color = GRIS_STOP
+        else: color = GRIS_OSCURO_BOTONES
+            
+        pygame.draw.rect(ventana, color, rect, border_radius=5)
+        pygame.draw.rect(ventana, NEGRO, rect, 2, border_radius=5)
+        
+        texto_boton = fuente_boton.render(name, True, NEGRO)
+        ventana.blit(texto_boton, (rect.centerx - texto_boton.get_width() // 2, rect.centery - texto_boton.get_height() // 2))
 
-    def on_step_back(self):
-        print("[<<] Paso atrás")
+    # 4. Actualizar la Pantalla
+    pygame.display.flip()
+    
+    # Control de frame rate
+    reloj.tick(60)
 
-    def on_step_fwd(self):
-        print("[>>] Paso adelante")
-
-# ---------------- Main ----------------
-if __name__ == "__main__":
-    GameUI().mainloop()
+# --- FINALIZACIÓN ---
+pygame.quit()
+sys.exit()
