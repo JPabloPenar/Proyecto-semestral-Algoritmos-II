@@ -1,3 +1,5 @@
+from pathfinding import bfs
+
 class vehicle:    
     def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado): 
         #los viajes totales también son la capacacidad
@@ -9,6 +11,10 @@ class vehicle:
         self.viajesActuales = viajesActuales
         self.equipo = equipo
         self.estado = estado
+        self.camino = []       # Lista de pasos a recorrer (en coordenadas de grid)
+        self.objetivos_pendientes = []
+        self.objetivo_actual = None   # Destino actual (fila, columna)
+        self.velocidad = 2     # píxeles por frame (movimiento suave)
 
     def explotar(self):
         self.estado = "explotado"
@@ -40,6 +46,63 @@ class vehicle:
     def irIzquierda(self):
         self.posicionX -= 5
         
+    
+    def agregar_objetivo(self, fila, columna):
+        # agrega un objetivo a la lista de objetivos solo si está dentro de su capacidad.
+        if len(self.objetivos_pendientes) < self.viajesTotales:
+            self.objetivos_pendientes.append((fila, columna))
+    
+    def actualizar_objetivo(self, grid):
+        #*
+        # Verifica si el vehículo llegó al objetivo actual.
+        # Si llegó, pasa al siguiente y calcula el camino BFS.
+        # #
+        if not self.objetivos_pendientes:
+            self.camino = []
+            self.objetivo = None
+            return
+    
+        # Si no hay objetivo actual o se completó el anterior
+        # self.posicionY // 5 y self.posicionX // 5 convierten píxeles a coordenadas de grid (si cada celda = 5 píxeles).
+        if self.objetivo_actual is None or (self.posicionY // 5, self.posicionX // 5) == self.objetivo_actual: 
+            self.objetivo_actual = self.objetivos_pendientes.pop(0)  # toma el siguiente objetivo.
+            self.calcular_camino(grid, self.objetivo_actual)  # calcula el camino BFS.
+    
+    def calcular_camino(self, grid, destino):
+        #*
+        #Calcula el camino más corto usando BFS desde la posición actual hasta 'destino'.
+        #La posición actual se pasa como coordenadas de grid (fila, columna).
+        # #
+        start = (self.posicionY, self.posicionX)  # fila, columna
+        self.camino = bfs(grid, start, destino)
+    
+    def mover_por_camino(self):
+        #*
+        # Mueve el vehículo hacia la siguiente celda del camino usando su velocidad.
+        # #
+        if not self.camino:
+            return
+        
+        fila, col = self.camino[0]  # primera posición del BFS
+        objetivoX = col * 5
+        objetivoY = fila * 5
+
+        # Mover en X
+        # min(self.velocidad, self.posicionX - objetivoX) asegura que no se pase del objetivo
+        if self.posicionX < objetivoX:
+            self.posicionX += min(self.velocidad, objetivoX - self.posicionX) # sumamos para ir a la derecha
+        elif self.posicionX > objetivoX:
+            self.posicionX -= min(self.velocidad, self.posicionX - objetivoX) # restamos para ir a la izquierda
+        
+        # Mover en Y
+        if self.posicionY < objetivoY:
+            self.posicionY += min(self.velocidad, objetivoY - self.posicionY) # sumamos para ir arriba
+        elif self.posicionY > objetivoY:
+            self.posicionY -= min(self.velocidad, self.posicionY - objetivoY) # sumamos para ir abajo
+        
+        # Si llegamos a la celda
+        if self.posicionX == objetivoX and self.posicionY == objetivoY:
+            self.camino.pop(0)
     
     # def mover_en_canvas(self, dx, dy):
 
