@@ -46,19 +46,56 @@ class vehicle:
 
 # ----- Subclases -----
 # Cada subclase define sus atributos de capacidad y carga explícitamente.
-#(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado)
+
+
 class jeep(vehicle):
-    def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado):
-        super().__init__(posicionX, posicionY, 2, 2, "todo", equipo, "activo")
+    CAPACIDAD = 2
+    TIPO_CARGA = "todo"
+    
+    def __init__(self, posicionX, posicionY, equipo):
+        super().__init__(
+            posicionX=posicionX, 
+            posicionY=posicionY, 
+            equipo=equipo,
+            viajesTotales=self.CAPACIDAD, 
+            tipoDeCarga=self.TIPO_CARGA
+        )
 
 class moto(vehicle):
-    def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado):
-        super().__init__(posicionX, posicionY, 1, 1, "personas", equipo, "activo")
+    CAPACIDAD = 1
+    TIPO_CARGA = "personas"
+    
+    def __init__(self, posicionX, posicionY, equipo):
+        super().__init__(
+            posicionX=posicionX, 
+            posicionY=posicionY, 
+            equipo=equipo,
+            viajesTotales=self.CAPACIDAD, 
+            tipoDeCarga=self.TIPO_CARGA
+        )
 
 class auto(vehicle):
-    def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado):
-        super().__init__(posicionX, posicionY, 1, 1, "todo", equipo, "activo")
+    CAPACIDAD = 1
+    TIPO_CARGA = "todo"
+    
+    def __init__(self, posicionX, posicionY, equipo):
+        super().__init__(
+            posicionX=posicionX, 
+            posicionY=posicionY, 
+            equipo=equipo,
+            viajesTotales=self.CAPACIDAD, 
+            tipoDeCarga=self.TIPO_CARGA
+        )
 
 class camion(vehicle):
-    def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado):
-        super().__init__(posicionX, posicionY, 3, 3, "todo", equipo, "activo")
+    CAPACIDAD = 3
+    TIPO_CARGA = "todo"
+    
+    def __init__(self, posicionX, posicionY, equipo):
+        super().__init__(
+            posicionX=posicionX, 
+            posicionY=posicionY, 
+            equipo=equipo,
+            viajesTotales=self.CAPACIDAD, 
+            tipoDeCarga=self.TIPO_CARGA
+        )
