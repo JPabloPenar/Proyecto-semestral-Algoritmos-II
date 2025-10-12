@@ -1,12 +1,17 @@
 class vehicle:    
-    def __init__(self, posicionX, posicionY, viajesTotales, viajesActuales, tipoDeCarga, equipo, estado): 
+    def __init__(self, posicionX, posicionY, viajesTotales, tipoDeCarga, equipo, viajesActuales=None, estado="activo"):
         #los viajes totales también son la capacacidad
 
         self.posicionX = posicionX
         self.posicionY = posicionY
         self.carga = tipoDeCarga
         self.viajesTotales = viajesTotales
-        self.viajesActuales = viajesActuales
+        
+        if viajesActuales is None:
+            self.viajesActuales = viajesTotales
+        else:
+            self.viajesActuales = viajesActuales
+
         self.equipo = equipo
         self.estado = estado
 
