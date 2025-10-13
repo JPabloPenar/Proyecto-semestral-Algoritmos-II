@@ -1,6 +1,6 @@
 import pygame
 import sys
-
+from vehicles import jeep, moto, auto, camion
 
 # --- Configuración y Constantes ---
 pygame.init()
@@ -15,11 +15,8 @@ GRIS_STOP = (200, 200, 200)
 GRIS_OSCURO_BOTONES = (180, 180, 180)
 TERRENO_FONDO = (250, 250, 250)
 
-# Colores para representar los vehículos
-COLOR_JEEP = (0, 100, 0)      # Verde oscuro
-COLOR_MOTO = (255, 165, 0)    # Naranja
-COLOR_TRUCK = (255, 0, 0)     # Rojo
-COLOR_CAR = (0, 0, 255)       # Azul
+COLOR_ROJO_EQUIPO = (255, 0, 0) # Rojo para Equipo "Rojo"
+COLOR_AZUL_EQUIPO = (0, 0, 255) # Azul para Equipo "Azul"
 
 # Dimensiones de la Ventana
 ANCHO_VENTANA = 800
@@ -33,7 +30,9 @@ pygame.display.set_caption("Simulador de Rescate - Interfaz")
 # Reloj para controlar la velocidad del juego
 reloj = pygame.time.Clock()
 
+# -------------------------------------------------------------
 # --- Rectángulos de la Interfaz ---
+# -------------------------------------------------------------
 ANCHO_BASE = 150
 ALTO_BASE = 350
 ANCHO_TERRENO = ANCHO_VENTANA - (2 * ANCHO_BASE)
@@ -66,20 +65,13 @@ rect_play = pygame.Rect(x_play, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON
 rect_next = pygame.Rect(x_next, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
 rect_stop = pygame.Rect(x_stop, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
 
-# Diccionario de botones para manejo de clics
-botones = {
-    "Init": {"rect": rect_init, "message": "Inicializando el mapa: Distribución Aleatoria."},
-    "<<": {"rect": rect_prev, "message": "Modo Replay: Retroceso de un paso."},
-    "Play": {"rect": rect_play, "message": "Iniciando/Reanudando la Simulación."},
-    ">>": {"rect": rect_next, "message": "Modo Replay: Avance de un paso."},
-    "Stop": {"rect": rect_stop, "message": "Deteniendo la Simulación."}
-}
-
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
 fuente_boton = pygame.font.Font(None, 30)
 
-# --- Funciones de Dibujo ---
+# -------------------------------------------------------------
+# --- Funciones de Inicialización y Dibujo (Definidas antes de ser llamadas) ---
+# -------------------------------------------------------------
 def draw_vehicle(surface, vehicle_type, color, x, y):
     """Dibuja una representación de un vehículo."""
     
@@ -101,7 +93,7 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         pygame.draw.circle(surface, NEGRO, (x + 4, y + 12), WHEEL_RADIUS)
         pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 8, y + 12), WHEEL_RADIUS)
         
-    elif vehicle_type == "Truck":
+    elif vehicle_type == "Camion":
         # Rectángulo más largo y alto (camión)
         TRUCK_WIDTH = 40
         TRUCK_HEIGHT = 20
@@ -110,7 +102,7 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         pygame.draw.circle(surface, NEGRO, (x + 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
         pygame.draw.circle(surface, NEGRO, (x + TRUCK_WIDTH - 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
         
-    elif vehicle_type == "Car":
+    elif vehicle_type == "Auto":
         # Rectángulo más plano y bajo
         CAR_HEIGHT = 15
         pygame.draw.rect(surface, color, (x, y + 3, VEHICLE_WIDTH - 5, CAR_HEIGHT), border_radius=3)
@@ -118,26 +110,88 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
         pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
 
-def draw_fleets(surface, base_rect):
-    """Dibuja la flota de 10 vehículos en la base, usando menor espaciado."""
+def draw_fleet_at_base(surface, fleet_list, base_rect):
+    """Dibuja los vehículos en la base."""
     
-    # Lista de 10 vehículos
-    fleet_composition = [
-        ("Jeep", COLOR_JEEP), ("Jeep", COLOR_JEEP), ("Jeep", COLOR_JEEP),
-        ("Moto", COLOR_MOTO), ("Moto", COLOR_MOTO),
-        ("Truck", COLOR_TRUCK), ("Truck", COLOR_TRUCK),
-        ("Car", COLOR_CAR), ("Car", COLOR_CAR), ("Car", COLOR_CAR)
-    ]
-    
-    start_x = base_rect.left + 10
+    start_x = base_rect.left +60
     start_y = base_rect.top + 20
     # Espacio vertical reducido
     spacing = 30 
 
-    for i, (v_type, color) in enumerate(fleet_composition):
+    for i, veh in enumerate(fleet_list):
         y_pos = start_y + i * spacing
-        draw_vehicle(surface, v_type, color, start_x, y_pos)
         
+        # Determinar el color basado en el equipo
+        if veh.equipo == "Rojo":
+            color = COLOR_ROJO_EQUIPO
+        elif veh.equipo == "Azul":
+            color = COLOR_AZUL_EQUIPO
+        else:
+            color = NEGRO # Color por defecto
+
+        # El tipo de vehículo se deduce de su clase
+        vehicle_type = veh.__class__.__name__.capitalize() 
+
+        draw_vehicle(surface, vehicle_type, color, start_x, y_pos)
+
+def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
+    """Crea objetos de vehículo y los asigna las bases correspondientes"""
+
+    clases_vehiculos = [
+        jeep, jeep, jeep,  # 3 Jeeps
+        moto, moto,        # 2 Motos
+        camion, camion,    # 2 Camiones
+        auto, auto, auto   # 3 Autos
+    ]
+    
+    pos_x1 = rect_base1.centerx
+    pos_y1 = rect_base1.centery
+    
+    flota_1 = []
+    # base 1(equipo rojo):
+    for Clase in clases_vehiculos: # El constructor en vehicles.py no recibe 'viajesActuales' ni 'estado'
+        veh = Clase( #constructor
+            posicionX=pos_x1, 
+            posicionY=pos_y1, 
+            equipo="Rojo"
+        )
+        
+        
+        flota_1.append(veh)
+
+    
+    pos_x2 = rect_base2.centerx
+    pos_y2 = rect_base2.centery
+
+    flota_2 = []
+    # base 2(equipo azul):
+    for Clase in clases_vehiculos:
+        veh = Clase( #constructor
+            posicionX=pos_x2, 
+            posicionY=pos_y2, 
+            equipo="Azul"
+        )
+        
+        flota_2.append(veh)
+
+    return flota_1, flota_2
+
+
+# --- Simulación / Objetos ---
+# Inicializar las flotas con los vehículos creados
+# ¡Ahora la función inicializar_equipos está definida!
+flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2, ANCHO_TERRENO)
+
+# Diccionario de botones para manejo de clics
+botones = {
+    "Init": {"rect": rect_init, "message": "Inicializando el mapa: Distribución Aleatoria."},
+    "<<": {"rect": rect_prev, "message": "Modo Replay: Retroceso de un paso."},
+    "Play": {"rect": rect_play, "message": "Iniciando/Reanudando la Simulación."},
+    ">>": {"rect": rect_next, "message": "Modo Replay: Avance de un paso."},
+    "Stop": {"rect": rect_stop, "message": "Deteniendo la Simulación."}
+}
+
+
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 ejecutando = True
 while ejecutando:
@@ -182,8 +236,8 @@ while ejecutando:
     ventana.blit(texto_base2, (rect_base2.centerx - texto_base2.get_width() // 2, rect_base2.top - 20))
 
     # C. Dibujar la Flota de Vehículos en ambas bases
-    draw_fleets(ventana, rect_base1)
-    draw_fleets(ventana, rect_base2)
+    draw_fleet_at_base(ventana, flota_base1, rect_base1)
+    draw_fleet_at_base(ventana, flota_base2, rect_base2)
     
     # D. Dibujar Botones de Control y su Texto
     for name, data in botones.items():
