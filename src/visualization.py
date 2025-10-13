@@ -97,8 +97,8 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
     """Dibuja una representación de un vehículo."""
     
     # NUEVAS DIMENSIONES
-    VEHICLE_WIDTH = 30 
-    VEHICLE_HEIGHT = 18
+    VEHICLE_WIDTH = 20 
+    VEHICLE_HEIGHT = 12
     WHEEL_RADIUS = 3
     
     if vehicle_type == "Jeep":
@@ -116,8 +116,8 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         
     elif vehicle_type == "Camion":
         # Rectángulo más largo y alto (camión)
-        TRUCK_WIDTH = 40
-        TRUCK_HEIGHT = 20
+        TRUCK_WIDTH = 30
+        TRUCK_HEIGHT = 15
         pygame.draw.rect(surface, color, (x, y, TRUCK_WIDTH, TRUCK_HEIGHT), border_radius=4)
         # Ruedas
         pygame.draw.circle(surface, NEGRO, (x + 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
@@ -131,64 +131,44 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
         pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
 
-
-def draw_fleet_at_base(surface, fleet_list, base_rect):
-    """Dibuja los vehículos en la base."""
-    
-    start_x = base_rect.left +60
-    start_y = base_rect.top + 20
-    # Espacio vertical reducido
-    spacing = 30 
-
-    for i, veh in enumerate(fleet_list):
-        y_pos = start_y + i * spacing
-        
-        # Determinar el color basado en el equipo
-        if veh.equipo == "Rojo":
-            color = COLOR_ROJO_EQUIPO
-        elif veh.equipo == "Azul":
-            color = COLOR_AZUL_EQUIPO
-        else:
-            color = NEGRO # Color por defecto
-
-        # El tipo de vehículo se deduce de su clase
-        vehicle_type = veh.__class__.__name__.capitalize() 
-
-        draw_vehicle(surface, vehicle_type, color, start_x, y_pos)
-
 def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
-    """Crea objetos de vehículo y los asigna las bases correspondientes"""
+    """Crea objetos de vehículo y les asigna posiciones de inicio distribuidas dentro de su base."""
 
     clases_vehiculos = [
-        jeep, jeep, jeep,  # 3 Jeeps
-        moto, moto,        # 2 Motos
-        camion, camion,    # 2 Camiones
-        auto, auto, auto   # 3 Autos
+        jeep, jeep, jeep, # 3 Jeeps
+        moto, moto, # 2 Motos
+        camion, camion, # 2 Camiones
+        auto, auto, auto # 3 Autos
     ]
     
-    pos_x1 = rect_base1.centerx
-    pos_y1 = rect_base1.centery
+    # Parámetros de distribución (coinciden con la vieja lógica de draw_fleet_at_base)
+    START_X_OFFSET = 60 # Desplazamiento horizontal desde el borde izquierdo
+    START_Y_OFFSET = 20 # Desplazamiento vertical inicial
+    SPACING = 30        # Espacio vertical entre vehículos
     
     flota_1 = []
-    # base 1(equipo rojo):
-    for Clase in clases_vehiculos: # El constructor en vehicles.py no recibe 'viajesActuales' ni 'estado'
-        veh = Clase( #constructor
+    # Base 1 (equipo rojo):
+    for i, Clase in enumerate(clases_vehiculos): 
+        # Calcula la posición de inicio para que se vea ordenado en la base
+        pos_x1 = rect_base1.left + START_X_OFFSET
+        pos_y1 = rect_base1.top + START_Y_OFFSET + i * SPACING 
+        
+        veh = Clase( # constructor
             posicionX=pos_x1, 
             posicionY=pos_y1, 
             equipo="Rojo"
         )
-        
-        
         flota_1.append(veh)
 
     
-    pos_x2 = rect_base2.centerx
-    pos_y2 = rect_base2.centery
-
     flota_2 = []
-    # base 2(equipo azul):
-    for Clase in clases_vehiculos:
-        veh = Clase( #constructor
+    # Base 2 (equipo azul):
+    for i, Clase in enumerate(clases_vehiculos):
+        # Calcula la posición de inicio para que se vea ordenado en la base
+        pos_x2 = rect_base2.left + START_X_OFFSET
+        pos_y2 = rect_base2.top + START_Y_OFFSET + i * SPACING
+        
+        veh = Clase( # constructor
             posicionX=pos_x2, 
             posicionY=pos_y2, 
             equipo="Azul"
@@ -200,6 +180,7 @@ def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
 
 # Inicializar las flotas con los vehículos creados
 flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2, ANCHO_TERRENO)
+flota_total = flota_base1 + flota_base2
 
 def draw_entities(surface, engine):
     """Dibuja las minas y recursos en el Terreno de Acción."""
@@ -296,6 +277,10 @@ def main_loop():
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
+
+                        for veh in flota_total:
+                            veh.agragarobjetivo(300,300)
+                            veh.calcular_camino
                         print(f"[PLAYING] Simulación Iniciada (Time Instance: {engine.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
@@ -338,10 +323,16 @@ def main_loop():
         # Dibujar Entidades (Recursos y Minas)
         draw_entities(ventana, engine)
         
-        # C. Dibujar la Flota de Vehículos en ambas bases
-        draw_fleet_at_base(ventana, flota_base1, rect_base1)
-        draw_fleet_at_base(ventana, flota_base2, rect_base2)
-        
+        for veh in flota_total:
+            if veh.equipo == "Rojo":
+                color = COLOR_ROJO_EQUIPO
+            elif veh.equipo == "Azul":
+                color = COLOR_AZUL_EQUIPO
+            else:
+                color = NEGRO 
+            vehicle_type = veh.__class__.__name__.capitalize() 
+            draw_vehicle(ventana, vehicle_type, color, veh.posicionX, veh.posicionY)
+
         # Dibujar Botones
         for name, data in botones.items():
             rect = data["rect"]
