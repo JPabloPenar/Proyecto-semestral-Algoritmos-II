@@ -7,16 +7,16 @@ class GameEngine:
     
     CELL_SIZE = 5 # Píxeles por unidad de cuadrícula (grid)
     
-    BORDER_MARGIN = 20 
+    BORDER_MARGIN = 40 
     
     TERRAIN_CONFIG_GRID = {
-        "min_col": 150 // CELL_SIZE + BORDER_MARGIN, 
-        "max_col": 650 // CELL_SIZE + BORDER_MARGIN, 
-        "min_row": 50 // CELL_SIZE + BORDER_MARGIN, 
-        "max_row": 400 // CELL_SIZE + BORDER_MARGIN
+        "min_col": 150 // CELL_SIZE, 
+        "max_col": (650 // CELL_SIZE) - 1, 
+        "min_row": 50 // CELL_SIZE, 
+        "max_row": (400 // CELL_SIZE) - 1
     }
     
-    BORDER_MARGIN_GRID = BORDER_MARGIN // CELL_SIZE
+    BORDER_MARGIN_GRID = BORDER_MARGIN // CELL_SIZE 
     
     # Cuadrícula de Acción Final (Unidades de Cuadrícula)
     ACTION_GRID_CONFIG = {
@@ -61,7 +61,7 @@ class GameEngine:
         de una entidad estática existente (mina o recurso).
         """
 
-        SAFETY_MARGIN_GRID = 2
+        SAFETY_MARGIN_GRID = 3
 
         for entity in self.entities:
             

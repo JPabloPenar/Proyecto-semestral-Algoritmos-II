@@ -225,7 +225,7 @@ def draw_entities(surface, engine):
 
     # 3. Dibujar Mina G1
     if engine.mobile_mine and engine.mobile_mine_visible:
-        x, y = int(engine.mobile_mine.columna), int(engine.mobile_mine.fila)
+        x, y = int(engine.mobile_mine.columna) * 5, int(engine.mobile_mine.fila) * 5
         radio = engine.mobile_mine.radio
         
         # Dibujar el radio de efecto
