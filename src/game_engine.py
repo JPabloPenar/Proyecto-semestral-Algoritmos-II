@@ -1,27 +1,37 @@
 import random
+import math
 from mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
 from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
 
 class GameEngine:
     
-    # --- Parámetros de Configuración Modificados ---
+    CELL_SIZE = 5 # Píxeles por unidad de cuadrícula (grid)
     
-    # Nuevo margen de seguridad para que las entidades no se generen justo en el borde.
     BORDER_MARGIN = 20 
     
-    # Ajustamos el área de generación para que sea más pequeña que el terreno visible.
-    TERRAIN_CONFIG = {
-        "min_x": 150 + BORDER_MARGIN, 
-        "max_x": 650 - BORDER_MARGIN, 
-        "min_y": 50 + BORDER_MARGIN, 
-        "max_y": 400 - BORDER_MARGIN
+    TERRAIN_CONFIG_GRID = {
+        "min_col": 150 // CELL_SIZE + BORDER_MARGIN, 
+        "max_col": 650 // CELL_SIZE + BORDER_MARGIN, 
+        "min_row": 50 // CELL_SIZE + BORDER_MARGIN, 
+        "max_row": 400 // CELL_SIZE + BORDER_MARGIN
     }
     
-    # Clase de Mina Móvil y Estáticas (sin cambios)
+    BORDER_MARGIN_GRID = BORDER_MARGIN // CELL_SIZE
+    
+    # Cuadrícula de Acción Final (Unidades de Cuadrícula)
+    ACTION_GRID_CONFIG = {
+        "min_col": TERRAIN_CONFIG_GRID["min_col"] + BORDER_MARGIN_GRID,
+        "max_col": TERRAIN_CONFIG_GRID["max_col"] - BORDER_MARGIN_GRID,
+        "min_row": TERRAIN_CONFIG_GRID["min_row"] + BORDER_MARGIN_GRID,
+        "max_row": TERRAIN_CONFIG_GRID["max_row"] - BORDER_MARGIN_GRID,
+    }
+
+   
+    # Clase de Mina Móvil y Estáticas 
     MINE_CLASSES = [MinaO1, MinaO2, MinaT1, MinaT2] 
     MOBILE_MINE_CLASS = MinaG1
     
-    # Distribución de Recursos (sin cambios)
+    # Distribución de Recursos 
     RESOURCE_DISTRIBUTION = {
         Persona: 10,
         Ropa: 10,
@@ -37,53 +47,57 @@ class GameEngine:
         self.mobile_mine_visible = False
         self.is_relocating = False
 
-    def _get_random_pos(self):
-        """Genera una posición aleatoria dentro del Terreno de Acción con margen."""
-        x = random.uniform(self.TERRAIN_CONFIG["min_x"], self.TERRAIN_CONFIG["max_x"])
-        y = random.uniform(self.TERRAIN_CONFIG["min_y"], self.TERRAIN_CONFIG["max_y"])
-        return x, y
 
-    def _check_collision(self, x, y, new_entity):
+    def _get_random_pos(self):
+        """Genera una posición aleatoria de GRID (columna, fila) dentro del Terreno de Acción con margen."""
+        col = random.randint(self.ACTION_GRID_CONFIG["min_col"], self.ACTION_GRID_CONFIG["max_col"])
+        fila = random.randint(self.ACTION_GRID_CONFIG["min_row"], self.ACTION_GRID_CONFIG["max_row"])
+        return col, fila # Retorna (columna, fila)
+
+
+    def _check_collision(self, col, fila, new_entity):
         """
         Verifica si la posición (x, y) choca con el área de efecto o posición
         de una entidad estática existente (mina o recurso).
         """
-        
-        # Margen de seguridad aumentado para evitar colisiones entre minas
-        SAFETY_MARGIN = 15 
+
+        SAFETY_MARGIN_GRID = 2
 
         for entity in self.entities:
             
             # --- 1. Chequeo de colisión entre MINAS y nuevas entidades ---
             if isinstance(entity, Mina):
                 
-                # Colisión Mina ESTÁTICA vs. Nueva Entidad
+                # Convertir el radio original (en píxeles/distancia) a unidades de grid
+                GRID_RADIUS = entity.radio / self.CELL_SIZE
+                
                 
                 
                 # Minas Circulares (O1, O2)
                 if entity.tipo in ["O1", "O2"]:
-                    distance = ((entity.x - x)**2 + (entity.y - y)**2)**0.5
-                    # La distancia de separación debe ser mayor al radio de efecto de la mina, más un margen
-                    if distance < entity.radio + SAFETY_MARGIN: 
+                    # Distancia entre centros de celdas de grid (teorema de Pitágoras)
+                    distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                    # La distancia de separación debe ser mayor al radio de efecto en grid, más un margen
+                    if distance < GRID_RADIUS + SAFETY_MARGIN_GRID: 
                         return True
 
                 # Mina T1 (Horizontal)
                 elif entity.tipo == "T1":
                     # Colisión si la nueva entidad cae dentro de la franja vertical de la mina
-                    if abs(entity.y - y) < entity.radio + SAFETY_MARGIN:
+                    if abs(entity.fila - fila) < GRID_RADIUS + SAFETY_MARGIN_GRID:
                         return True
                         
-                # Mina T2 (Vertical)
+                # Mina T2 (Vertical) - Chequea distancia en X (columna)
                 elif entity.tipo == "T2":
                     # Colisión si la nueva entidad cae dentro de la franja horizontal de la mina
-                    if abs(entity.x - x) < entity.radio + SAFETY_MARGIN:
+                    if abs(entity.columna - col) < GRID_RADIUS + SAFETY_MARGIN_GRID:
                         return True
                     
-            # --- 2. Chequeo de colisión entre RECURSOS ---
-            # Solo si la entidad nueva es un Recurso, verificamos colisión con Recursos existentes
+            # --- 2. Chequeo de colisión entre RECURSOS (grid units) ---
             if isinstance(new_entity, Recurso) and isinstance(entity, Recurso):
-                distance = ((entity.x - x)**2 + (entity.y - y)**2)**0.5
-                if distance < 5: # Margen pequeño para evitar apilamiento
+                # Margen pequeño de 1 unidad de grid para evitar apilamiento
+                distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                if distance < 1: 
                     return True
                          
         return False
@@ -93,29 +107,26 @@ class GameEngine:
             Reubica la Mina G1 de forma segura (sin colisionar con entidades estáticas).
             Esta función se llama cuando la mina está invisible (transición instantánea).
             """
-            print("Reubicando Mina G1...")
+
             placed = False
             attempts = 0
-            # Usamos el objeto MinaG1 existente en el chequeo de colisión
             new_mine = self.mobile_mine
             
             while not placed and attempts < 1000:
-                x, y = self._get_random_pos()
+                col, fila = self._get_random_pos()
                 
                 # Chequeamos colisión contra todas las entidades estáticas
-                if not self._check_collision(x, y, new_mine): 
-                    self.mobile_mine.set_posicion(x, y)
+                if not self._check_collision(col, fila, new_mine): 
+                    self.mobile_mine.set_posicion(col, fila)
                     placed = True
                 attempts += 1
             
             if not placed:
-                print("ADVERTENCIA: No se pudo colocar Mina G1 sin colisión. Colocada aleatoriamente.")
-                x, y = self._get_random_pos()
-                self.mobile_mine.set_posicion(x, y)
+                col, fila = self._get_random_pos()
+                self.mobile_mine.set_posicion(col, fila)
 
     def distribute_entities(self):
-        # ... (el resto de la función distribute_entities no necesita cambios)
-        print("--- Iniciando Distribución Aleatoria (Init) ---")
+
         self.entities = []
         entity_id_counter = 1
         
@@ -124,10 +135,10 @@ class GameEngine:
             placed = False
             attempts = 0
             while not placed and attempts < 5000: # Aumentamos intentos a 5000
-                x, y = self._get_random_pos()
+                col, fila = self._get_random_pos()
                 new_mine = MineClass(id_=entity_id_counter)
-                if not self._check_collision(x, y, new_mine):
-                    new_mine.set_posicion(x, y)
+                if not self._check_collision(col, fila, new_mine):
+                    new_mine.set_posicion(col, fila)
                     self.entities.append(new_mine)
                     entity_id_counter += 1
                     placed = True
@@ -142,10 +153,10 @@ class GameEngine:
                 placed = False
                 attempts = 0
                 while not placed and attempts < 1000:
-                    x, y = self._get_random_pos()
+                    col, fila = self._get_random_pos()
                     new_resource = ResourceClass(id_=entity_id_counter)
-                    if not self._check_collision(x, y, new_resource):
-                        new_resource.set_posicion(x, y)
+                    if not self._check_collision(col, fila, new_resource):
+                        new_resource.set_posicion(col, fila)
                         self.entities.append(new_resource)
                         entity_id_counter += 1
                         placed = True
@@ -158,24 +169,20 @@ class GameEngine:
         self.mobile_mine_visible = True
         self.time_instance = 0 
         self.is_relocating = False
-        print(f"Distribución finalizada. Entidades estáticas: {len(self.entities)}")
 
     RELOCATION_TICK = 100
     def update_time(self):
         self.time_instance += 1
         
-        # Lógica de Mina G1: aparece y desaparece cada 5 instancias de tiempo
         if self.is_relocating:
             # Pasa 1 tick invisible (instantáneo)
             self._relocate_mobile_mine()
             self.mobile_mine_visible = True
             self.is_relocating = False
-            print(f"G1 reaparece en: ({int(self.mobile_mine.x)}, {int(self.mobile_mine.y)})")
             
         elif self.time_instance % self.RELOCATION_TICK == 0:
             # Tick donde debe moverse (Pasa 1 tick visible -> 1 tick invisible)
             self.mobile_mine_visible = False
             self.is_relocating = True
-            print(f"G1 desaparece en el tick {self.time_instance}.")
         
         return self.time_instance

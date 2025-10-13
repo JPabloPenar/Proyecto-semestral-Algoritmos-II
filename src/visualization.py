@@ -1,7 +1,6 @@
 import pygame
 import sys
 import os
-# Asegúrate de que estos imports funcionen (los archivos deben estar en la misma carpeta)
 from game_engine import GameEngine 
 from mines import Mina, MinaT1, MinaT2, MinaG1
 from resources import Recurso, Persona
@@ -27,6 +26,7 @@ COLOR_MINA_MOVIL = (255, 140, 0)
 COLOR_PERSONA = (0, 0, 200)           
 COLOR_RECURSO = (0, 200, 0)           
 
+# Colores para representar equipos
 COLOR_ROJO_EQUIPO = (255, 0, 0) # Rojo para Equipo "Rojo"
 COLOR_AZUL_EQUIPO = (0, 0, 255) # Azul para Equipo "Azul"
 
@@ -44,7 +44,7 @@ reloj = pygame.time.Clock()
 SIMULATION_FPS = 60 # 60 ticks por segundo
 SIMULATION_STATE = "STOPPED" # STOPPED, INITIALIZED, PLAYING
 
-# --- Rectángulos y Botones (Mismos que el código anterior) ---
+# --- Rectángulos y Botones ---
 ANCHO_BASE = 150
 ALTO_BASE = 350
 ANCHO_TERRENO = ANCHO_VENTANA - (2 * ANCHO_BASE)
@@ -52,10 +52,12 @@ ALTO_TERRENO = ALTO_BASE
 MARGEN_SUPERIOR = 50
 ESPACIO_CENTRAL = 50 
 
+# 3 Rectangulos principales del juego
 rect_base1 = pygame.Rect(0, MARGEN_SUPERIOR, ANCHO_BASE, ALTO_BASE)
 rect_terreno = pygame.Rect(ANCHO_BASE, MARGEN_SUPERIOR, ANCHO_TERRENO, ALTO_TERRENO)
 rect_base2 = pygame.Rect(ANCHO_BASE + ANCHO_TERRENO, MARGEN_SUPERIOR, ANCHO_BASE, ALTO_BASE)
 
+# Definimos y otorgamos variables para los botones
 ALTO_BOTON = 50
 ANCHO_BOTON = 100
 MARGEN_HORIZONTAL_BOTONES = 20
@@ -74,8 +76,6 @@ rect_play = pygame.Rect(x_play, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON
 rect_next = pygame.Rect(x_next, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
 rect_stop = pygame.Rect(x_stop, MARGEN_VERTICAL_BOTONES, ANCHO_BOTON, ALTO_BOTON)
 
-
-
 botones = {
     "Init": {"rect": rect_init, "message": "Distribución Aleatoria."},
     "<<": {"rect": rect_prev, "message": "Replay: Retroceso."},
@@ -91,12 +91,11 @@ engine = GameEngine()
 fuente_titulo = pygame.font.Font(None, 24)
 fuente_boton = pygame.font.Font(None, 30)
 
-# --- Funciones de Dibujo ---
 
+# --- Funciones de Dibujo ---
 def draw_vehicle(surface, vehicle_type, color, x, y):
     """Dibuja una representación de un vehículo."""
     
-    # NUEVAS DIMENSIONES
     VEHICLE_WIDTH = 20 
     VEHICLE_HEIGHT = 12
     WHEEL_RADIUS = 3
@@ -131,7 +130,7 @@ def draw_vehicle(surface, vehicle_type, color, x, y):
         pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
         pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
 
-def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
+def inicializar_equipos(rect_base1, rect_base2):
     """Crea objetos de vehículo y les asigna posiciones de inicio distribuidas dentro de su base."""
 
     clases_vehiculos = [
@@ -141,7 +140,6 @@ def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
         auto, auto, auto # 3 Autos
     ]
     
-    # Parámetros de distribución (coinciden con la vieja lógica de draw_fleet_at_base)
     START_X_OFFSET = 60 # Desplazamiento horizontal desde el borde izquierdo
     START_Y_OFFSET = 20 # Desplazamiento vertical inicial
     SPACING = 30        # Espacio vertical entre vehículos
@@ -153,11 +151,11 @@ def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
         pos_x1 = rect_base1.left + START_X_OFFSET
         pos_y1 = rect_base1.top + START_Y_OFFSET + i * SPACING 
         
-        veh = Clase( # constructor
-            posicionX=pos_x1, 
-            posicionY=pos_y1, 
-            equipo="Rojo"
-        )
+        veh = Clase(columna=pos_x1 // 5,
+                     fila=pos_y1 // 5, 
+                     equipo="Rojo"
+                     )
+        
         flota_1.append(veh)
 
     
@@ -169,8 +167,8 @@ def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
         pos_y2 = rect_base2.top + START_Y_OFFSET + i * SPACING
         
         veh = Clase( # constructor
-            posicionX=pos_x2, 
-            posicionY=pos_y2, 
+            columna=pos_x2 // 5, 
+            fila=pos_y2 // 5, 
             equipo="Azul"
         )
         
@@ -179,26 +177,27 @@ def inicializar_equipos(rect_base1, rect_base2, ancho_terreno):
     return flota_1, flota_2
 
 # Inicializar las flotas con los vehículos creados
-flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2, ANCHO_TERRENO)
+flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
 flota_total = flota_base1 + flota_base2
 
 def draw_entities(surface, engine):
     """Dibuja las minas y recursos en el Terreno de Acción."""
     
-    # ... (Dibujo de Recursos - sin cambios)
+    # --- Dibujo de Recursos ---
     for entity in engine.entities:
         if isinstance(entity, Recurso):
+            x, y = entity.columna * 5, entity.fila * 5
             color = COLOR_PERSONA if isinstance(entity, Persona) else COLOR_RECURSO
             
             if isinstance(entity, Persona):
-                pygame.draw.circle(surface, color, (int(entity.x), int(entity.y)), 4)
+                pygame.draw.circle(surface, color, (int(x), int(y)), 4)
             else:
-                pygame.draw.rect(surface, color, (int(entity.x) - 3, int(entity.y) - 3, 6, 6))
+                pygame.draw.rect(surface, color, (int(x) - 3, int(y) - 3, 6, 6))
 
     # 2. Dibujar Minas Estáticas
     for entity in engine.entities:
         if isinstance(entity, Mina) and not entity.movil:
-            x, y = int(entity.x), int(entity.y)
+            x, y = entity.columna * 5, entity.fila * 5
             radio = entity.radio # Radio de efecto (no de dibujo)
             
             # NUEVO TAMAÑO VISUAL DE LAS MINAS
@@ -224,16 +223,16 @@ def draw_entities(surface, engine):
                 # Dibuja el cuerpo de la mina
                 pygame.draw.circle(surface, NEGRO, (x, y), 5) 
 
-    # 3. Dibujar Mina G1 (Móvil - CAMBIO EN DIBUJO)
+    # 3. Dibujar Mina G1
     if engine.mobile_mine and engine.mobile_mine_visible:
-        x, y = int(engine.mobile_mine.x), int(engine.mobile_mine.y)
+        x, y = int(engine.mobile_mine.columna), int(engine.mobile_mine.fila)
         radio = engine.mobile_mine.radio
         
-        # Dibujar el radio de efecto (Círculo Naranja)
+        # Dibujar el radio de efecto
         pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio), 2)
         
         # Dibujar el cuerpo de la mina (Cuadrado/Diamante)
-        size = 8
+        size = 1
         puntos = [
             (x, y - size), # Arriba
             (x + size, y), # Derecha
@@ -278,9 +277,9 @@ def main_loop():
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
 
-                        for veh in flota_total:
-                            veh.agragarobjetivo(300,300)
-                            veh.calcular_camino
+                        # for veh in flota_total:
+                        #     veh.agragarobjetivo(300,300)
+                        #     veh.calcular_camino
                         print(f"[PLAYING] Simulación Iniciada (Time Instance: {engine.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
@@ -331,7 +330,7 @@ def main_loop():
             else:
                 color = NEGRO 
             vehicle_type = veh.__class__.__name__.capitalize() 
-            draw_vehicle(ventana, vehicle_type, color, veh.posicionX, veh.posicionY)
+            draw_vehicle(ventana, vehicle_type, color, veh.columna * 5, veh.fila * 5)
 
         # Dibujar Botones
         for name, data in botones.items():
