@@ -1,7 +1,7 @@
 import pygame
 import sys
 import os
-from game_engine import GameEngine 
+from map_manager import MapManager 
 from mines import Mina, MinaT1, MinaT2, MinaG1
 from resources import Recurso, Persona
 from vehicles import jeep, moto, camion, auto
@@ -85,7 +85,7 @@ botones = {
 }
 
 # --- Inicialización del Motor del Juego ---
-engine = GameEngine()
+engine = MapManager()
 
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
