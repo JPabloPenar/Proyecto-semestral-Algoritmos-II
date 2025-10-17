@@ -38,14 +38,3 @@ def bfs(grid, start, goal):
         return []
     return camino[1:]  # eliminamos la posición inicial porque el vehículo ya está ahí y debe moverse a las otras posiciones.
 
-def actualizar_minas_moviles(grid, minas_moviles, tiempo_actual):
-    #*
-    # Actualiza el estado del grid según minas móviles.
-    # minas_moviles: lista de tuplas (fila, columna, periodo)
-    # 'periodo' = cada cuántos instantes la mina aparece/desaparece
-    # #
-    for fila, col, periodo in minas_moviles:
-        if tiempo_actual % periodo == 0:
-            grid[fila][col] = 1  # mina aparece
-        else:
-            grid[fila][col] = 0  # mina desaparece

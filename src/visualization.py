@@ -190,9 +190,9 @@ def draw_entities(surface, engine):
             color = COLOR_PERSONA if isinstance(entity, Persona) else COLOR_RECURSO
             
             if isinstance(entity, Persona):
-                pygame.draw.circle(surface, color, (int(x), int(y)), 4)
+                pygame.draw.circle(surface, color, (int(x), int(y)), 2.5)
             else:
-                pygame.draw.rect(surface, color, (int(x) - 3, int(y) - 3, 6, 6))
+                pygame.draw.rect(surface, color, (int(x) - 2.5, int(y) - 2.5, 5, 5))
 
     # 2. Dibujar Minas Estáticas
     for entity in engine.entities:
@@ -201,25 +201,21 @@ def draw_entities(surface, engine):
             radio = entity.radio # Radio de efecto (no de dibujo)
             
             # NUEVO TAMAÑO VISUAL DE LAS MINAS
-            VISUAL_SIZE = 40 
+            VISUAL_SIZE = 40
             
             if isinstance(entity, MinaT1): # Horizontal (Mina T1)
                 # Dibuja línea central más grande
                 pygame.draw.line(surface, COLOR_MINA_LINEAL, (x - VISUAL_SIZE, y), (x + VISUAL_SIZE, y), 4)
-                # Dibuja límites de radio de efecto (área peligrosa)
-                pygame.draw.line(surface, (150, 50, 50), (x - VISUAL_SIZE, y - radio), (x + VISUAL_SIZE, y - radio), 1)
-                pygame.draw.line(surface, (150, 50, 50), (x - VISUAL_SIZE, y + radio), (x + VISUAL_SIZE, y + radio), 1)
+                
                 
             elif isinstance(entity, MinaT2): # Vertical (Mina T2)
                 # Dibuja línea central más grande
                 pygame.draw.line(surface, COLOR_MINA_LINEAL, (x, y - VISUAL_SIZE), (x, y + VISUAL_SIZE), 4)
-                # Dibuja límites de radio de efecto (área peligrosa)
-                pygame.draw.line(surface, (150, 50, 50), (x - radio, y - VISUAL_SIZE), (x - radio, y + VISUAL_SIZE), 1)
-                pygame.draw.line(surface, (150, 50, 50), (x + radio, y - VISUAL_SIZE), (x + radio, y + VISUAL_SIZE), 1)
+
                 
             else: # Circular (Mina O1, O2)
                 # Dibuja el radio de efecto
-                pygame.draw.circle(surface, COLOR_MINA_CIRCULAR, (x, y), int(radio), 2) # Borde del área de efecto
+                pygame.draw.circle(surface, COLOR_MINA_CIRCULAR, (x, y), int(radio)*5, 2) # Borde del área de efecto
                 # Dibuja el cuerpo de la mina
                 pygame.draw.circle(surface, NEGRO, (x, y), 5) 
 
@@ -229,7 +225,7 @@ def draw_entities(surface, engine):
         radio = engine.mobile_mine.radio
         
         # Dibujar el radio de efecto
-        pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio), 2)
+        pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio)*5, 2)
         
         # Dibujar el cuerpo de la mina (Cuadrado/Diamante)
         size = 1

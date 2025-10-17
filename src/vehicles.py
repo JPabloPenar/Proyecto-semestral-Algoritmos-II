@@ -86,7 +86,7 @@ class vehicle:
         # Primera posicion del bfs
         fila_grid, col_grid = self.camino[0]
         
-
+        #esto parece ser para que el movimiento se vea mas suave en la interfaz
         objetivoX = col_grid * 5
         objetivoY = fila_grid * 5
     
