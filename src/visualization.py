@@ -294,6 +294,51 @@ def main_loop():
         if SIMULATION_STATE == "PLAYING":
             # Avanza la instancia de tiempo. Maneja la aparición/desaparición de Mina G1.
             engine.update_time()
+            for veh in flota_total:
+                """
+                En esta parte nos encargamos de verificar las colisiones de los vehiculos
+                Se imprimen mensajes por pantalla de ser necesario.
+                TODO:
+                    Se deben sacar los objetos con los que colisiono del mapa (minas explotadas y recursos recogidos)
+                """
+                if veh.camino:
+                    veh.mover_por_camino()
+
+                veh.actualizar_objetivo(engine.grid_maestra)
+
+                if veh.estado == "activo":
+                    
+                    collision_type, entity = engine.check_vehicle_collisions(veh)
+                    
+                    if collision_type and entity:
+                        
+                        if collision_type.startswith("mina"):
+                            # El vehículo explota y se desactiva
+                            veh.explotar()
+                            veh.camino = [] # Detiene el movimiento
+                            print(f"¡Explosión! {veh.__class__.__name__}")
+                            
+                            # Opcional: Si el recurso se destruye, hay que removerlo de la grid y de entities.
+                            # Para minas, no es necesario hacer nada.
+
+                        elif collision_type == "recurso":
+                            # El vehículo recoge el recurso si su capacidad se lo permite
+                            if veh.carga == entity.tipoDeCarga or veh.carga == "todo":
+                                # Solo recoge si tiene viajes disponibles
+                                if veh.viajesActuales > 0:
+                                    veh.recoger() # Disminuye viajesActuales
+                                    print(f"({veh.equipo}) recogió Recurso ({entity.__class__.__name__}) en ({veh.columna}, {veh.fila}).")
+                                    
+                                    # Quitar el recurso de la grid y de la lista de entidades
+                                    engine.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
+                                    engine.entities.remove(entity)
+                                    
+                                    # Lógica adicional: Asignarle el objetivo de la base para "descargar"
+                                    # Se puede hacer aquí o en la lógica de recolección de vehículos.
+                                    # Por ahora, solo simula la recolección.
+                                    
+                                else:
+                                    print(f"🚫 {veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
 
         # 3. Dibujo
         ventana.fill(BLANCO)

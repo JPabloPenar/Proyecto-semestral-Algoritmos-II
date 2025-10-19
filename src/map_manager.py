@@ -2,6 +2,7 @@ import random
 import math
 from mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
 from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
+from vehicles import vehicle
 
 class MapManager:
     
@@ -169,6 +170,43 @@ class MapManager:
                     return True
                          
         return False
+
+    def check_vehicle_collisions(self, veh):
+
+        fila, col = veh.fila, veh.columna
+        # Primero, verifica que la posición esté dentro de los límites de la grid
+        if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
+
+            # El objeto en la grid (puede ser 0, 1, o un objeto Recurso)
+            entity = self.grid_maestra[fila][col]
+
+            # Colisión con Mina (estática o móvil) - Marcadas con 1 en la grid
+            if entity == 1:
+                # Distancia en grid_units
+                dist_col = abs(entity.columna - veh.columna)
+                dist_fila = abs(entity.fila - veh.fila)
+
+                # Colisión por radio:
+                if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
+                    distance = math.sqrt(dist_col**2 + dist_fila**2)
+                    if distance <= entity.radio:
+                        return entity.tipo, entity
+
+                elif entity.tipo == "T1": # Mina Horizontal
+                    if dist_fila <= entity.radio:
+                        return entity.tipo, entity
+
+                elif entity.tipo == "T2": # Mina Vertical
+                    if dist_col <= entity.radio:
+                        return entity.tipo, entity
+
+            elif isinstance(entity, Recurso):
+                return "recurso", entity
+
+            elif isinstance(entity, vehicle): 
+                return "vehiculo", entity
+
+        return None, None
 
     def _relocate_mobile_mine(self):
             """
