@@ -85,7 +85,7 @@ botones = {
 }
 
 # --- Inicialización del Motor del Juego ---
-engine = MapManager()
+mmanager = MapManager()
 
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
@@ -151,8 +151,8 @@ def inicializar_equipos(rect_base1, rect_base2):
         pos_x1 = rect_base1.left + START_X_OFFSET
         pos_y1 = rect_base1.top + START_Y_OFFSET + i * SPACING 
         
-        veh = Clase(columna=pos_x1 // 5,
-                     fila=pos_y1 // 5, 
+        veh = Clase(px=pos_x1,
+                     py=pos_y1, 
                      equipo="Rojo"
                      )
         
@@ -167,8 +167,8 @@ def inicializar_equipos(rect_base1, rect_base2):
         pos_y2 = rect_base2.top + START_Y_OFFSET + i * SPACING
         
         veh = Clase( # constructor
-            columna=pos_x2 // 5, 
-            fila=pos_y2 // 5, 
+            px=pos_x2, 
+            py=pos_y2, 
             equipo="Azul"
         )
         
@@ -245,7 +245,7 @@ def main_loop():
     ejecutando = True
     
     # Inicialización forzada de minas/recursos al inicio (Init inicial)
-    engine.distribute_entities()
+    mmanager.distribute_entities()
     SIMULATION_STATE = "INITIALIZED"
     
     while ejecutando:
@@ -262,7 +262,7 @@ def main_loop():
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
-                        engine.distribute_entities()
+                        mmanager.distribute_entities()
                         SIMULATION_STATE = "INITIALIZED"
                         print(f"[INITIALIZED] Nueva distribución generada.")
                     else:
@@ -276,7 +276,7 @@ def main_loop():
                         # for veh in flota_total:
                         #     veh.agragarobjetivo(300,300)
                         #     veh.calcular_camino
-                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {engine.time_instance}).")
+                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {mmanager.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN STOP
@@ -293,7 +293,7 @@ def main_loop():
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             # Avanza la instancia de tiempo. Maneja la aparición/desaparición de Mina G1.
-            engine.update_time()
+            mmanager.update_time()
 
         # 3. Dibujo
         ventana.fill(BLANCO)
@@ -308,7 +308,7 @@ def main_loop():
 
         # Dibujar Títulos
         texto_base1 = fuente_titulo.render("Base 1", True, NEGRO)
-        texto_terreno = fuente_titulo.render("Terreno de Accion (Time: {})".format(engine.time_instance), True, NEGRO)
+        texto_terreno = fuente_titulo.render("Terreno de Accion (Time: {})".format(mmanager.time_instance), True, NEGRO)
         texto_base2 = fuente_titulo.render("Base 2", True, NEGRO)
 
         ventana.blit(texto_base1, (rect_base1.centerx - texto_base1.get_width() // 2, rect_base1.top - 20))
@@ -316,7 +316,7 @@ def main_loop():
         ventana.blit(texto_base2, (rect_base2.centerx - texto_base2.get_width() // 2, rect_base2.top - 20))
 
         # Dibujar Entidades (Recursos y Minas)
-        draw_entities(ventana, engine)
+        draw_entities(ventana, mmanager)
         
         for veh in flota_total:
             if veh.equipo == "Rojo":
@@ -326,7 +326,7 @@ def main_loop():
             else:
                 color = NEGRO 
             vehicle_type = veh.__class__.__name__.capitalize() 
-            draw_vehicle(ventana, vehicle_type, color, veh.columna * 5, veh.fila * 5)
+            draw_vehicle(ventana, vehicle_type, color, veh.px, veh.py)
 
         # Dibujar Botones
         for name, data in botones.items():
