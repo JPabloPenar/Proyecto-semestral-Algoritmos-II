@@ -29,7 +29,7 @@ class MapManager:
 
         try:
             if not os.path.exists(filename):
-                print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
+                #print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
                 return None
             
             # acceder al archivo con permisos de donde rb = read binary
@@ -57,13 +57,12 @@ class MapManager:
 
     # Guarda el estado actual del MapManager como un nuevo paso en la historia.
     def guardar_estado_historial(self):
-        
-        # ESTO DE ACA, ?QUE?
-        # while len(self.history) > self.current_history_index + 1:
-        #     # Eliminar el archivo si existe (para no llenar el disco)
-        #     filename_to_delete = self.history.pop()
-        #     if os.path.exists(filename_to_delete):
-        #         os.remove(filename_to_delete)
+
+        while len(self.history) > self.current_history_index + 1:
+            # Eliminar el archivo si existe (para no llenar el disco)
+            filename_to_delete = self.history.pop()
+            if os.path.exists(filename_to_delete):
+                os.remove(filename_to_delete)
 
         # Guardar el estado actual en el siguiente índice
         self.current_history_index += 1
@@ -74,6 +73,24 @@ class MapManager:
             return True
         
         return False
+    
+    # Borra todos los archivos .pickle de la carpeta de historial y reinicia el historial interno.
+    def _limpiar_historial(self):
+        
+        # Elimina los archivos de la carpeta
+        if os.path.exists(self.base_dir):
+            for filename in os.listdir(self.base_dir):
+                if filename.endswith(".pickle"):
+                    file_path = os.path.join(self.base_dir, filename)
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Error al borrar archivo {file_path}: {e}")
+        
+        # Reinicia el estado interno del historial
+        self.history = []
+        self.current_history_index = -1
+        self.time_instance = 0 # Reinicia el contador de tiempo
     
 
     # --- VARIABLES DE UNIDADES Y MAPA ---
@@ -151,6 +168,7 @@ class MapManager:
         self.time_instance = 0
         self.mobile_mine_visible = False
         self.is_relocating = False
+        self.vehicles = []
         # Inicializa la GRID MAESTRA para pathfinding (incluye bases y terreno)
         self.grid_maestra = self._crear_grid(self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES)
 
@@ -314,6 +332,9 @@ class MapManager:
 
 
     def distribute_entities(self):
+
+        # Limpiamos el directorio y la lista que contiene los estados de la partida
+        self._limpiar_historial()
 
         self.entities = []
         entity_id_counter = 1

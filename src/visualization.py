@@ -177,6 +177,7 @@ def inicializar_equipos(rect_base1, rect_base2):
 flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
 flota_total = flota_base1 + flota_base2
 
+
 def draw_entities(surface, engine):
     """Dibuja las minas y recursos en el Terreno de Acción."""
     
@@ -245,13 +246,15 @@ engine = MapManager.cargar_estado(ENGINE_HISTORY_FILE)
 if engine is None: 
     engine = MapManager()
 
+engine.vehicles = flota_total
+
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
     global SIMULATION_STATE, engine
     ejecutando = True
     
     engine.distribute_entities() # Inicialización forzada de minas/recursos al inicio
-    engine.current_history_index = 0 # Inicializacion del puntero
+    engine.guardar_estado_historial()# Inicializacion del puntero
     SIMULATION_STATE = "INITIALIZED"
     
     while ejecutando:
@@ -300,12 +303,14 @@ def main_loop():
                     # Si no estamos jugando y hay eventos anteriores
                     elif SIMULATION_STATE == "STOPPED" and engine.current_history_index > 0:
                         engine.current_history_index -= 1
-                        # Carga el estado anterior y reemplaza el objeto 'engine' actual
+
                         new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
                         if new_engine:
                             engine = new_engine # Reemplaza el motor por el estado anterior
-                            print(f"[REPLAY] Retroceso a Time Instance: {engine.time_instance}")
 
+
+                        # Carga el estado anterior y reemplaza el objeto 'engine' actual
+                       
 
                     # Si estamos al principio de la simulacion (no hay eventos anteriores)
                     elif engine.current_history_index == 0:
@@ -323,7 +328,7 @@ def main_loop():
                         new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
                         if new_engine:
                             engine = new_engine
-                            print(f"[REPLAY] Avance a Time Instance: {engine.time_instance}.")
+
                             
                     else:
                         engine.update_time() # Guarda el nuevo estado, incrementa time_instance y history_index
@@ -358,7 +363,11 @@ def main_loop():
                                         entity.explotar()
                                         entity.camino = []
                                         print(f"Choque de {veh.__class__.__name__} y {entity.__class__.__name__}")
-                                            
+
+                        
+                        # new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
+                        # if new_engine:
+                        #     engine = new_engine                    
                         SIMULATION_STATE = "STOPPED"
                         print(f"[TICK] Avanzado un paso (Time Instance: {engine.time_instance}).")
 
