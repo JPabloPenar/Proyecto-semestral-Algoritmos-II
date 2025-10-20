@@ -3,11 +3,81 @@ import math
 from mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
 from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
 from vehicles import vehicle
+import pickle
+import os
 
 class MapManager:
+
+    # --- METODOS DE MANEJO DE ESTADOS DE JUEGO ---
+    # Serializa y guarda el estado actual del MapManager en un archivo.
+    def guardar_estado(self, filename="map_state.pickle"):
+
+        try:
+            # acceder al archivo con permisos de donde wb = write binary
+            with open(filename, 'wb') as file:
+
+                # Dump se encarga de serializar
+                pickle.dump(self, file)
+
+            return True
+        except Exception as e:
+            print(f"Error al guardar el estado: {e}")
+            return False
+        
+    #Carga y retorna un objeto MapManager desde un archivo serializado.
+    def cargar_estado(filename="map_state.pickle"):
+
+        try:
+            if not os.path.exists(filename):
+                print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
+                return None
+            
+            # acceder al archivo con permisos de donde rb = read binary
+            with open(filename, 'rb') as file:
+                # Carga el objeto completo (incluyendo grid, entities, etc.)
+                return pickle.load(file) 
+        except Exception as e:
+            print(f"Error al cargar el estado: {e}")
+            return None
+
+    # Genera el nombre de archivo para un índice de historia específico.
+    def _get_history_filename(self, index):
+
+        # .makedirs crea la carpeta si no existe
+        os.makedirs(self.base_dir, exist_ok=True) # Asegura que la carpeta exista
+
+        """
+        .join une diferentes partes de la ruta de un archivo
+        En nuestro caso une: 
+        1. self.base_dir(nombre de la carpeta donde se almacenan todos los estados) 
+        2. f-string que crea el nombre del archivo (index:04 es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
+            I.E: state_0000.pickle
+        """
+        return os.path.join(self.base_dir, f"state_{index:04d}.pickle")
+
+    # Guarda el estado actual del MapManager como un nuevo paso en la historia.
+    def guardar_estado_historial(self):
+        
+        # ESTO DE ACA, ?QUE?
+        # while len(self.history) > self.current_history_index + 1:
+        #     # Eliminar el archivo si existe (para no llenar el disco)
+        #     filename_to_delete = self.history.pop()
+        #     if os.path.exists(filename_to_delete):
+        #         os.remove(filename_to_delete)
+
+        # Guardar el estado actual en el siguiente índice
+        self.current_history_index += 1
+        filename = self._get_history_filename(self.current_history_index)
+        
+        if self.guardar_estado(filename):
+            self.history.append(filename)
+            return True
+        
+        return False
     
-    CELL_SIZE = 5 # Píxeles por unidad de cuadrícula (grid)
-    
+
+    # --- VARIABLES DE UNIDADES Y MAPA ---
+    CELL_SIZE = 5 
     BORDER_MARGIN = 40 
 
     # NUEVA CONFIGURACIÓN: Dimensiones de la Ventana en Unidades de Grid
@@ -30,7 +100,6 @@ class MapManager:
         "min_row": TERRAIN_CONFIG_GRID["min_row"] + BORDER_MARGIN_GRID,
         "max_row": TERRAIN_CONFIG_GRID["max_row"] - BORDER_MARGIN_GRID,
     }
-
 
     # Definición de las zonas de las bases para exclusión de minas/recursos
     # y para la comprobación de destino/base (para descarga).
@@ -72,7 +141,11 @@ class MapManager:
         Armamentos: 10
     }   
     
+    """
+        CONSTRUCTOR DE LA CLASE MAPMANAGER
+    """
     def __init__(self):
+
         self.entities = [] 
         self.mobile_mine = self.MOBILE_MINE_CLASS(id_=99)
         self.time_instance = 0
@@ -85,6 +158,11 @@ class MapManager:
         self.old_mobile_mine_fila = -1
         self.old_mobile_mine_col = -1
         self._initial_placement_done = False # Bandera para la primera colocación
+
+        # HISTORIAL Y PUNTERO PARA MANEJAR ESTADOS DE JUEGO
+        self.history = [] 
+        self.current_history_index = -1
+        self.base_dir = "map_history" # Carpeta para guardar los estados
 
 
     def _get_random_pos(self):
@@ -171,12 +249,13 @@ class MapManager:
                          
         return False
 
+    # TODO: Llenar los espacios del radio de las minas con 1s
     def check_vehicle_collisions(self, veh):
 
         fila, col = veh.fila, veh.columna
         # Primero, verifica que la posición esté dentro de los límites de la grid
         if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
-
+            
             # El objeto en la grid (puede ser 0, 1, o un objeto Recurso)
             entity = self.grid_maestra[fila][col]
 
@@ -349,5 +428,8 @@ class MapManager:
             self._actualizar_grid_minas()
 
             self.is_relocating = True   # Prepara la reubicación para el siguiente tick
+
+        # Guardamos el estado de juego despues de la logica del tick
+        self.guardar_estado_historial()
         
         return self.time_instance

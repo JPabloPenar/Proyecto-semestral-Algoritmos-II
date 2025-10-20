@@ -84,9 +84,6 @@ botones = {
     "Stop": {"rect": rect_stop, "message": "Deteniendo simulación."}
 }
 
-# --- Inicialización del Motor del Juego ---
-engine = MapManager()
-
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
 fuente_boton = pygame.font.Font(None, 30)
@@ -238,14 +235,23 @@ def draw_entities(surface, engine):
         pygame.draw.polygon(surface, COLOR_MINA_MOVIL, puntos)
         pygame.draw.polygon(surface, NEGRO, puntos, 1) # Borde negro
 
+# --- INICIALIZACION DEL MOTOR DE JUEGO ---
+ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
+
+# Intenta cargar el estado inicial. Si falla o no existe, devuelve None.
+engine = MapManager.cargar_estado(ENGINE_HISTORY_FILE)
+
+# Si engine es None, significa que no se pudo cargar o no existía el archivo.
+if engine is None: 
+    engine = MapManager()
 
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
-    global SIMULATION_STATE
+    global SIMULATION_STATE, engine
     ejecutando = True
     
-    # Inicialización forzada de minas/recursos al inicio (Init inicial)
-    engine.distribute_entities()
+    engine.distribute_entities() # Inicialización forzada de minas/recursos al inicio
+    engine.current_history_index = 0 # Inicializacion del puntero
     SIMULATION_STATE = "INITIALIZED"
     
     while ejecutando:
@@ -286,14 +292,82 @@ def main_loop():
                     
                 # << y >> (Mensajes)
                 elif botones["<<"]["rect"].collidepoint(mouse_pos):
-                    print(f"[{SIMULATION_STATE}] {botones['<<']['message']}")
+
+                    # Si estamos jugando
+                    if SIMULATION_STATE == "PLAYING":
+                        print("La simulación debe estar detenida para retroceder.")
+                    
+                    # Si no estamos jugando y hay eventos anteriores
+                    elif SIMULATION_STATE == "STOPPED" and engine.current_history_index > 0:
+                        engine.current_history_index -= 1
+                        # Carga el estado anterior y reemplaza el objeto 'engine' actual
+                        new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
+                        if new_engine:
+                            engine = new_engine # Reemplaza el motor por el estado anterior
+                            print(f"[REPLAY] Retroceso a Time Instance: {engine.time_instance}")
+
+
+                    # Si estamos al principio de la simulacion (no hay eventos anteriores)
+                    elif engine.current_history_index == 0:
+                        print("Ya estás en el inicio de la simulación.")
+
                 elif botones[">>"]["rect"].collidepoint(mouse_pos):
-                    print(f"[{SIMULATION_STATE}] {botones['>>']['message']}")
+
+                    if SIMULATION_STATE == "PLAYING":
+                        print("La simulación debe estar detenida para avanzar en el replay.")
+
+                    # ¿Hay un estado futuro grabado (en el historial) al que avanzar?
+                    elif engine.current_history_index < len(engine.history) - 1:
+                        engine.current_history_index += 1
+                        # Carga el estado siguiente y reemplaza el objeto 'engine' actual
+                        new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
+                        if new_engine:
+                            engine = new_engine
+                            print(f"[REPLAY] Avance a Time Instance: {engine.time_instance}.")
+                            
+                    else:
+                        engine.update_time() # Guarda el nuevo estado, incrementa time_instance y history_index
+                        
+                        # Lógica del vehículo (copiada del SIMULATION_STATE == "PLAYING" original)
+                        for veh in flota_total:
+                            if veh.camino:
+                                veh.mover_por_camino()
+                            veh.actualizar_objetivo(engine.grid_maestra)
+                            
+                            if veh.estado == "activo":
+                                collision_type, entity = engine.check_vehicle_collisions(veh)
+                                
+                                # Lógica simplificada de colisión (Mina/Recurso) para el tick único
+                                if collision_type and entity:
+                                    if collision_type.startswith("mina"):
+                                        veh.explotar()
+                                        veh.camino = []
+                                        print(f"¡Explosión! {veh.__class__.__name__} (Time: {engine.time_instance})")
+                                    elif collision_type == "recurso":
+                                        if veh.viajesActuales > 0:
+                                            veh.recoger()
+                                            print(f"({veh.equipo}) recogió Recurso ({entity.__class__.__name__}) en ({veh.columna}, {veh.fila}) (Time: {engine.time_instance}).")
+                                            engine.grid_maestra[veh.fila][veh.columna] = 0
+                                            engine.entities.remove(entity)
+                                        else:
+                                            print(f"{veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
+                                    
+                                    elif collision_type == "vehiculo":
+                                        veh.explotar()
+                                        veh.camino = [] # Detiene el movimiento
+                                        entity.explotar()
+                                        entity.camino = []
+                                        print(f"Choque de {veh.__class__.__name__} y {entity.__class__.__name__}")
+                                            
+                        SIMULATION_STATE = "STOPPED"
+                        print(f"[TICK] Avanzado un paso (Time Instance: {engine.time_instance}).")
+
 
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             # Avanza la instancia de tiempo. Maneja la aparición/desaparición de Mina G1.
             engine.update_time()
+
             for veh in flota_total:
                 """
                 En esta parte nos encargamos de verificar las colisiones de los vehiculos
@@ -318,8 +392,8 @@ def main_loop():
                             veh.camino = [] # Detiene el movimiento
                             print(f"¡Explosión! {veh.__class__.__name__}")
                             
-                            # Opcional: Si el recurso se destruye, hay que removerlo de la grid y de entities.
-                            # Para minas, no es necesario hacer nada.
+                            # Si el auto colisiona podriamos quitar la mina de la colision
+                            # TODO: consultar acerca de esto
 
                         elif collision_type == "recurso":
                             # El vehículo recoge el recurso si su capacidad se lo permite
@@ -332,13 +406,17 @@ def main_loop():
                                     # Quitar el recurso de la grid y de la lista de entidades
                                     engine.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
                                     engine.entities.remove(entity)
-                                    
-                                    # Lógica adicional: Asignarle el objetivo de la base para "descargar"
-                                    # Se puede hacer aquí o en la lógica de recolección de vehículos.
-                                    # Por ahora, solo simula la recolección.
-                                    
                                 else:
-                                    print(f"🚫 {veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
+                                    print(f"{veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
+                        
+                        elif collision_type == "vehiculo":
+                            #TODO: CHEQUEAR
+                            veh.explotar()
+                            veh.camino = [] # Detiene el movimiento
+                            entity.explotar()
+                            entity.camino = []
+                            print(f"Choque de {veh.__class__.__name__} y {entity.__class__.__name__}")
+                                                                
 
         # 3. Dibujo
         ventana.fill(BLANCO)
