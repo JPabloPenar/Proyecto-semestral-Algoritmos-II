@@ -302,11 +302,26 @@ def main_loop():
                     
                     # Si no estamos jugando y hay eventos anteriores
                     elif SIMULATION_STATE == "STOPPED" and engine.current_history_index > 0:
+
+                        # 1. Guarda la metadata de historial antes de decrementar
+                        current_history = engine.history
+                        current_base_dir = engine.base_dir
+
+                        # AÑADE ESTO: Guarda el índice antes de cambiarlo
+                        old_index = engine.current_history_index
+                        
                         engine.current_history_index -= 1
 
                         new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
                         if new_engine:
                             engine = new_engine # Reemplaza el motor por el estado anterior
+
+                            # 4. Restaura la metadata consistente (historial truncado)
+                            engine.history = current_history
+                            engine.base_dir = current_base_dir
+
+                            # AÑADE ESTO: Sobreescribe el índice del motor cargado con el índice correcto (decrementado)
+                            engine.current_history_index = old_index - 1
 
 
                         # Carga el estado anterior y reemplaza el objeto 'engine' actual
@@ -323,11 +338,27 @@ def main_loop():
 
                     # ¿Hay un estado futuro grabado (en el historial) al que avanzar?
                     elif engine.current_history_index < len(engine.history) - 1:
+
+                        # 1. Guarda la metadata de historial
+                        current_history = engine.history
+                        current_base_dir = engine.base_dir
+                        
+                        # AÑADE ESTO: Guarda el índice antes de cambiarlo
+                        old_index = engine.current_history_index
+
                         engine.current_history_index += 1
                         # Carga el estado siguiente y reemplaza el objeto 'engine' actual
                         new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
+
                         if new_engine:
                             engine = new_engine
+
+                            # 4. Restaura la metadata consistente (historial, base_dir)
+                            engine.history = current_history
+                            engine.base_dir = current_base_dir
+                            
+                            # AÑADE ESTO: Sobreescribe el índice del motor cargado con el índice correcto (incrementado)
+                            engine.current_history_index = old_index + 1
 
                             
                     else:

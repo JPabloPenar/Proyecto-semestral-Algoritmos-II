@@ -57,12 +57,13 @@ class MapManager:
 
     # Guarda el estado actual del MapManager como un nuevo paso en la historia.
     def guardar_estado_historial(self):
-
-        while len(self.history) > self.current_history_index + 1:
+        
+        #esto no hace nada
+        #while len(self.history) > self.current_history_index + 1:
             # Eliminar el archivo si existe (para no llenar el disco)
-            filename_to_delete = self.history.pop()
-            if os.path.exists(filename_to_delete):
-                os.remove(filename_to_delete)
+            #filename_to_delete = self.history.pop()
+            #if os.path.exists(filename_to_delete):
+                #os.remove(filename_to_delete)
 
         # Guardar el estado actual en el siguiente índice
         self.current_history_index += 1
