@@ -352,7 +352,7 @@ class MapManager:
                     self.entities.append(new_mine)
 
                     # Ponemos las minas con 1 en la grid
-                    self.grid_maestra[fila][col] = 1
+                    self._marcar_area_mina(new_mine, valor=1)
 
                     entity_id_counter += 1
                     placed = True
@@ -397,6 +397,46 @@ class MapManager:
         self.old_mobile_mine_col = self.mobile_mine.columna
         self._initial_placement_done = True
 
+    
+    #esta funcion marca con unos el radio de explosion de las minas
+
+    def _marcar_area_mina(self, mina: Mina, valor=1):
+        fila_c, col_c = mina.fila, mina.columna
+        radio = int(mina.radio) # Usamos el radio directamente para la grid
+
+        filas, cols = self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES
+
+        #estas variables son para verificar que el radio no se vaya a salir del mapa, que daría index error
+        #si quisieramos poner ahï un uno, de todas formas eso no debería pasar porque se supone que las minas 
+        #spawnean bien, pero bueno... es, una lastima porque eso no anda bien
+        max_fila = min(filas, fila_c + radio + 1)
+        min_fila =  max(0, fila_c - radio)
+
+        max_col = min(cols, col_c + radio + 1)
+        min_col = max(0, col_c - radio)
+
+        # Mina Circular (O1, O2, G1)
+        if mina.tipo in ["O1", "O2", "G1"]:
+            # Recorre un cuadrado que contiene el círculo de efecto
+            for f in range(min_fila, max_fila):
+                for c in range(min_col, max_col):
+                    # Verifica si la celda (f, c) está dentro del radio
+                    distance = math.sqrt((c - col_c)**2 + (f - fila_c)**2)
+                    if distance <= radio:
+                        self.grid_maestra[f][c] = valor
+        
+        # Mina Lineal Horizontal (T1)
+        elif mina.tipo == "T1":
+            
+            for c in range(min_col, max_col + 1): 
+                self.grid_maestra[mina.fila][c] = valor
+
+        # Mina Lineal Vertical (T2)
+        elif mina.tipo == "T2":
+
+            for f in range(min_fila, max_fila + 1): 
+                self.grid_maestra[f][mina.columna] = valor
+
 
     def _actualizar_grid_minas(self):
         """
@@ -406,8 +446,13 @@ class MapManager:
         
         # Borrar la posición anterior (solo si ya se colocó una vez)
         if self._initial_placement_done:
-            # Poner la celda anterior de la mina en 0 (libre)
-            self.grid_maestra[self.old_mobile_mine_fila][self.old_mobile_mine_col] = 0
+            """ Hay que hacer una nueva mina con las posiciones viejas, porque la funcion _marcar_area_mina usa los atributos
+            fila y columna actuales, pero para borrar necesitamos las pòsiciones anteriores"""
+
+            temp_mine_prev = self.MOBILE_MINE_CLASS(id_=99) # Tipo G1
+            temp_mine_prev.set_posicion(self.old_mobile_mine_col, self.old_mobile_mine_fila)
+            # Borrar el área de efecto con valor 0 (libre)
+            self._marcar_area_mina(temp_mine_prev, valor=0)
             
             # Nota: Las minas estáticas deben haberse colocado una sola vez en distribute_entities.
             # Por eso esta función solo maneja la Mina G1.
@@ -415,7 +460,7 @@ class MapManager:
         # Marcar la nueva posición si la mina está visible
         if self.mobile_mine_visible:
             # 1 = obstáculo/mina
-            self.grid_maestra[self.mobile_mine.fila][self.mobile_mine.columna] = 1
+            self._marcar_area_mina(self.mobile_mine, valor=1)
             
         # Actualizar la posición antigua para el siguiente tick
         self.old_mobile_mine_fila = self.mobile_mine.fila
