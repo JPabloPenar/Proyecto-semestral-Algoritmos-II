@@ -2,11 +2,100 @@ import random
 import math
 from mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
 from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
+from vehicles import vehicle
+import pickle
+import os
 
 class MapManager:
+
+    # --- METODOS DE MANEJO DE ESTADOS DE JUEGO ---
+    # Serializa y guarda el estado actual del MapManager en un archivo.
+    def guardar_estado(self, filename="map_state.pickle"):
+
+        try:
+            # acceder al archivo con permisos de donde wb = write binary
+            with open(filename, 'wb') as file:
+
+                # Dump se encarga de serializar
+                pickle.dump(self, file)
+
+            return True
+        except Exception as e:
+            print(f"Error al guardar el estado: {e}")
+            return False
+        
+    #Carga y retorna un objeto MapManager desde un archivo serializado.
+    def cargar_estado(filename="map_state.pickle"):
+
+        try:
+            if not os.path.exists(filename):
+                #print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
+                return None
+            
+            # acceder al archivo con permisos de donde rb = read binary
+            with open(filename, 'rb') as file:
+                # Carga el objeto completo (incluyendo grid, entities, etc.)
+                return pickle.load(file) 
+        except Exception as e:
+            print(f"Error al cargar el estado: {e}")
+            return None
+
+    # Genera el nombre de archivo para un índice de historia específico.
+    def _get_history_filename(self, index):
+
+        # .makedirs crea la carpeta si no existe
+        os.makedirs(self.base_dir, exist_ok=True) # Asegura que la carpeta exista
+
+        """
+        .join une diferentes partes de la ruta de un archivo
+        En nuestro caso une: 
+        1. self.base_dir(nombre de la carpeta donde se almacenan todos los estados) 
+        2. f-string que crea el nombre del archivo (index:04 es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
+            I.E: state_0000.pickle
+        """
+        return os.path.join(self.base_dir, f"state_{index:04d}.pickle")
+
+    # Guarda el estado actual del MapManager como un nuevo paso en la historia.
+    def guardar_estado_historial(self):
+        
+        #esto no hace nada
+        #while len(self.history) > self.current_history_index + 1:
+            # Eliminar el archivo si existe (para no llenar el disco)
+            #filename_to_delete = self.history.pop()
+            #if os.path.exists(filename_to_delete):
+                #os.remove(filename_to_delete)
+
+        # Guardar el estado actual en el siguiente índice
+        self.current_history_index += 1
+        filename = self._get_history_filename(self.current_history_index)
+        
+        if self.guardar_estado(filename):
+            self.history.append(filename)
+            return True
+        
+        return False
     
-    CELL_SIZE = 5 # Píxeles por unidad de cuadrícula (grid)
+    # Borra todos los archivos .pickle de la carpeta de historial y reinicia el historial interno.
+    def _limpiar_historial(self):
+        
+        # Elimina los archivos de la carpeta
+        if os.path.exists(self.base_dir):
+            for filename in os.listdir(self.base_dir):
+                if filename.endswith(".pickle"):
+                    file_path = os.path.join(self.base_dir, filename)
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Error al borrar archivo {file_path}: {e}")
+        
+        # Reinicia el estado interno del historial
+        self.history = []
+        self.current_history_index = -1
+        self.time_instance = 0 # Reinicia el contador de tiempo
     
+
+    # --- VARIABLES DE UNIDADES Y MAPA ---
+    CELL_SIZE = 5 
     BORDER_MARGIN = 40 
 
     # NUEVA CONFIGURACIÓN: Dimensiones de la Ventana en Unidades de Grid
@@ -29,7 +118,6 @@ class MapManager:
         "min_row": TERRAIN_CONFIG_GRID["min_row"] + BORDER_MARGIN_GRID,
         "max_row": TERRAIN_CONFIG_GRID["max_row"] - BORDER_MARGIN_GRID,
     }
-
 
     # Definición de las zonas de las bases para exclusión de minas/recursos
     # y para la comprobación de destino/base (para descarga).
@@ -71,12 +159,17 @@ class MapManager:
         Armamentos: 10
     }   
     
+    """
+        CONSTRUCTOR DE LA CLASE MAPMANAGER
+    """
     def __init__(self):
+
         self.entities = [] 
         self.mobile_mine = self.MOBILE_MINE_CLASS(id_=99)
         self.time_instance = 0
         self.mobile_mine_visible = False
         self.is_relocating = False
+        self.vehicles = []
         # Inicializa la GRID MAESTRA para pathfinding (incluye bases y terreno)
         self.grid_maestra = self._crear_grid(self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES)
 
@@ -84,6 +177,11 @@ class MapManager:
         self.old_mobile_mine_fila = -1
         self.old_mobile_mine_col = -1
         self._initial_placement_done = False # Bandera para la primera colocación
+
+        # HISTORIAL Y PUNTERO PARA MANEJAR ESTADOS DE JUEGO
+        self.history = [] 
+        self.current_history_index = -1
+        self.base_dir = "map_history" # Carpeta para guardar los estados
 
 
     def _get_random_pos(self):
@@ -170,6 +268,44 @@ class MapManager:
                          
         return False
 
+    # TODO: Llenar los espacios del radio de las minas con 1s
+    def check_vehicle_collisions(self, veh):
+
+        fila, col = veh.fila, veh.columna
+        # Primero, verifica que la posición esté dentro de los límites de la grid
+        if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
+            
+            # El objeto en la grid (puede ser 0, 1, o un objeto Recurso)
+            entity = self.grid_maestra[fila][col]
+
+            # Colisión con Mina (estática o móvil) - Marcadas con 1 en la grid
+            if entity == 1:
+                # Distancia en grid_units
+                dist_col = abs(entity.columna - veh.columna)
+                dist_fila = abs(entity.fila - veh.fila)
+
+                # Colisión por radio:
+                if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
+                    distance = math.sqrt(dist_col**2 + dist_fila**2)
+                    if distance <= entity.radio:
+                        return entity.tipo, entity
+
+                elif entity.tipo == "T1": # Mina Horizontal
+                    if dist_fila <= entity.radio:
+                        return entity.tipo, entity
+
+                elif entity.tipo == "T2": # Mina Vertical
+                    if dist_col <= entity.radio:
+                        return entity.tipo, entity
+
+            elif isinstance(entity, Recurso):
+                return "recurso", entity
+
+            elif isinstance(entity, vehicle): 
+                return "vehiculo", entity
+
+        return None, None
+
     def _relocate_mobile_mine(self):
             """
             Reubica la Mina G1 de forma segura (sin colisionar con entidades estáticas).
@@ -198,6 +334,9 @@ class MapManager:
 
     def distribute_entities(self):
 
+        # Limpiamos el directorio y la lista que contiene los estados de la partida
+        self._limpiar_historial()
+
         self.entities = []
         entity_id_counter = 1
         
@@ -213,7 +352,7 @@ class MapManager:
                     self.entities.append(new_mine)
 
                     # Ponemos las minas con 1 en la grid
-                    self.grid_maestra[fila][col] = 1
+                    self._marcar_area_mina(new_mine, valor=1)
 
                     entity_id_counter += 1
                     placed = True
@@ -258,6 +397,46 @@ class MapManager:
         self.old_mobile_mine_col = self.mobile_mine.columna
         self._initial_placement_done = True
 
+    
+    #esta funcion marca con unos el radio de explosion de las minas
+
+    def _marcar_area_mina(self, mina: Mina, valor=1):
+        fila_c, col_c = mina.fila, mina.columna
+        radio = int(mina.radio) # Usamos el radio directamente para la grid
+
+        filas, cols = self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES
+
+        #estas variables son para verificar que el radio no se vaya a salir del mapa, que daría index error
+        #si quisieramos poner ahï un uno, de todas formas eso no debería pasar porque se supone que las minas 
+        #spawnean bien, pero bueno... es, una lastima porque eso no anda bien
+        max_fila = min(filas, fila_c + radio + 1)
+        min_fila =  max(0, fila_c - radio)
+
+        max_col = min(cols, col_c + radio + 1)
+        min_col = max(0, col_c - radio)
+
+        # Mina Circular (O1, O2, G1)
+        if mina.tipo in ["O1", "O2", "G1"]:
+            # Recorre un cuadrado que contiene el círculo de efecto
+            for f in range(min_fila, max_fila):
+                for c in range(min_col, max_col):
+                    # Verifica si la celda (f, c) está dentro del radio
+                    distance = math.sqrt((c - col_c)**2 + (f - fila_c)**2)
+                    if distance <= radio:
+                        self.grid_maestra[f][c] = valor
+        
+        # Mina Lineal Horizontal (T1)
+        elif mina.tipo == "T1":
+            
+            for c in range(min_col, max_col + 1): 
+                self.grid_maestra[mina.fila][c] = valor
+
+        # Mina Lineal Vertical (T2)
+        elif mina.tipo == "T2":
+
+            for f in range(min_fila, max_fila + 1): 
+                self.grid_maestra[f][mina.columna] = valor
+
 
     def _actualizar_grid_minas(self):
         """
@@ -267,8 +446,13 @@ class MapManager:
         
         # Borrar la posición anterior (solo si ya se colocó una vez)
         if self._initial_placement_done:
-            # Poner la celda anterior de la mina en 0 (libre)
-            self.grid_maestra[self.old_mobile_mine_fila][self.old_mobile_mine_col] = 0
+            """ Hay que hacer una nueva mina con las posiciones viejas, porque la funcion _marcar_area_mina usa los atributos
+            fila y columna actuales, pero para borrar necesitamos las pòsiciones anteriores"""
+
+            temp_mine_prev = self.MOBILE_MINE_CLASS(id_=99) # Tipo G1
+            temp_mine_prev.set_posicion(self.old_mobile_mine_col, self.old_mobile_mine_fila)
+            # Borrar el área de efecto con valor 0 (libre)
+            self._marcar_area_mina(temp_mine_prev, valor=0)
             
             # Nota: Las minas estáticas deben haberse colocado una sola vez en distribute_entities.
             # Por eso esta función solo maneja la Mina G1.
@@ -276,7 +460,7 @@ class MapManager:
         # Marcar la nueva posición si la mina está visible
         if self.mobile_mine_visible:
             # 1 = obstáculo/mina
-            self.grid_maestra[self.mobile_mine.fila][self.mobile_mine.columna] = 1
+            self._marcar_area_mina(self.mobile_mine, valor=1)
             
         # Actualizar la posición antigua para el siguiente tick
         self.old_mobile_mine_fila = self.mobile_mine.fila
@@ -311,5 +495,8 @@ class MapManager:
             self._actualizar_grid_minas()
 
             self.is_relocating = True   # Prepara la reubicación para el siguiente tick
+
+        # Guardamos el estado de juego despues de la logica del tick
+        self.guardar_estado_historial()
         
         return self.time_instance
