@@ -268,42 +268,47 @@ class MapManager:
                          
         return False
 
-    # TODO: Llenar los espacios del radio de las minas con 1s
     def check_vehicle_collisions(self, veh):
 
         fila, col = veh.fila, veh.columna
-        # Primero, verifica que la posición esté dentro de los límites de la grid
-        if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
+        
+        if not (0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES):
+            return None, None # Fuera de límites
+
+        entity_at_cell = self.grid_maestra[fila][col]
+
+        if isinstance(entity_at_cell, Recurso):
+            # Colisión con un Recurso
+            return "recurso", entity_at_cell
+
+        elif isinstance(entity_at_cell, vehicle) and entity_at_cell is not veh: 
+            # Colisión con otro Vehículo (asegura que no sea el mismo vehículo)
+            return "vehiculo", entity_at_cell
+        
+        all_mines = [e for e in self.entities if isinstance(e, Mina) and not e.movil]
+        if self.mobile_mine_visible:
+            all_mines.append(self.mobile_mine)
             
-            # El objeto en la grid (puede ser 0, 1, o un objeto Recurso)
-            entity = self.grid_maestra[fila][col]
+        for entity in all_mines:
+            dist_col = abs(entity.columna - col)
+            dist_fila = abs(entity.fila - fila)
+            distance = math.sqrt(dist_col**2 + dist_fila**2)
 
-            # Colisión con Mina (estática o móvil) - Marcadas con 1 en la grid
-            if entity == 1:
-                # Distancia en grid_units
-                dist_col = abs(entity.columna - veh.columna)
-                dist_fila = abs(entity.fila - veh.fila)
+            if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
+                if distance <= entity.radio:
+                    # Colisión con una mina circular
+                    return "mina_circular", entity
 
-                # Colisión por radio:
-                if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
-                    distance = math.sqrt(dist_col**2 + dist_fila**2)
-                    if distance <= entity.radio:
-                        return entity.tipo, entity
+            elif entity.tipo == "T1": # Mina Horizontal (afecta por distancia en Y)
+                if dist_fila <= entity.radio:
+                    # Colisión con una mina horizontal
+                    return "mina_horizontal", entity
 
-                elif entity.tipo == "T1": # Mina Horizontal
-                    if dist_fila <= entity.radio:
-                        return entity.tipo, entity
-
-                elif entity.tipo == "T2": # Mina Vertical
-                    if dist_col <= entity.radio:
-                        return entity.tipo, entity
-
-            elif isinstance(entity, Recurso):
-                return "recurso", entity
-
-            elif isinstance(entity, vehicle): 
-                return "vehiculo", entity
-
+            elif entity.tipo == "T2": # Mina Vertical (afecta por distancia en X)
+                if dist_col <= entity.radio:
+                    # Colisión con una mina vertical
+                    return "mina_vertical", entity
+                    
         return None, None
 
     def _relocate_mobile_mine(self):
