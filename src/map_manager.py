@@ -310,12 +310,12 @@ class MapManager:
                     return "mina_circular", entity
 
             elif entity.tipo == "T1": # Mina Horizontal (afecta por distancia en Y)
-                if dist_fila <= entity.radio:
+                if dist_col <= entity.radio and fila == entity.fila:
                     # Colisión con una mina horizontal
                     return "mina_horizontal", entity
 
             elif entity.tipo == "T2": # Mina Vertical (afecta por distancia en X)
-                if dist_col <= entity.radio:
+                if dist_fila <= entity.radio and col == entity.columna:
                     # Colisión con una mina vertical
                     return "mina_vertical", entity
                     
