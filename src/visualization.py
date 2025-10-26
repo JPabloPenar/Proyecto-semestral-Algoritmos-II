@@ -443,6 +443,19 @@ def main_loop():
             texto_boton = fuente_boton.render(name, True, NEGRO)
             ventana.blit(texto_boton, (rect.centerx - texto_boton.get_width() // 2, rect.centery - texto_boton.get_height() // 2))
 
+        # --- Mostrar Puntajes en Pantalla ---
+        PUNTAJES_X_ROJO = rect_base1.left + 10
+        PUNTAJES_Y_ROJO = rect_base1.top - 40
+
+        PUNTAJES_X_AZUL = rect_base2.left + 10
+        PUNTAJES_Y_AZUL = rect_base2.top - 40
+        fuente_puntajes = pygame.font.Font(None, 24)
+
+        texto_rojo = fuente_puntajes.render(f"Rojo: {engine.puntajes['Rojo']} pts", True, COLOR_ROJO_EQUIPO)
+        ventana.blit(texto_rojo, (PUNTAJES_X_ROJO, PUNTAJES_Y_ROJO))
+
+        texto_azul = fuente_puntajes.render(f"Azul: {engine.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
+        ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
         # 4. Actualizar la Pantalla
         pygame.display.flip()
         reloj.tick(SIMULATION_FPS)

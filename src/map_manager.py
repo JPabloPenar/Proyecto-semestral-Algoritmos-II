@@ -182,6 +182,10 @@ class MapManager:
         self.history = [] 
         self.current_history_index = -1
         self.base_dir = "map_history" # Carpeta para guardar los estados
+        
+        # Atributos para los puntajes de los equipos
+        self.puntajes = {'Rojo': 0, 'Azul': 0}
+        self.recursos_restantes = 0
 
 
     def _get_random_pos(self):
@@ -279,6 +283,12 @@ class MapManager:
 
         if isinstance(entity_at_cell, Recurso):
             # Colisión con un Recurso
+            # Si todavía tiene espacio para recoger recursos entra.
+            if len(veh.recursos) < veh.viajesTotales:
+                veh.recursos.append(entity_at_cell) 
+                self.grid_maestra[fila][col] = 0  # elimina el recurso del mapa
+                self.entities.remove(entity_at_cell)
+                print(f"{veh.nombre} recogió un recurso ({entity_at_cell.tipo}).")
             return "recurso", entity_at_cell
 
         elif isinstance(entity_at_cell, vehicle) and entity_at_cell is not veh: 
@@ -309,7 +319,28 @@ class MapManager:
                     # Colisión con una mina vertical
                     return "mina_vertical", entity
                     
+        
+        # Si el vehículo llega a la base exitosamente, entregará los recursos que agarró.
+        if veh.equipo == "Rojo" and self._en_base(veh, self.BASE1_GRID):
+            self._entregar_recursos(veh)
+        elif veh.equipo == "Azul" and self._en_base(veh, self.BASE2_GRID):
+            self._entregar_recursos(veh)
         return None, None
+
+# Función que devuelve True si el vehículo está en su base.
+    def _en_base(self, vehiculo, base_zone):
+        return (base_zone["min_col"] <= vehiculo.columna <= base_zone["max_col"]and base_zone["min_row"] <= vehiculo.fila <= base_zone["max_row"])
+
+# Función que entrega todos los recursos recolectados y suma puntaje.
+    def _entregar_recursos(self, vehiculo):
+        if vehiculo.recursos:
+            cantidad = len(vehiculo.recursos)
+            puntos_ganados = sum(recurso.get_puntos() for recurso in vehiculo.recursos)  # obtiene el puntaje de cada recurso recolectado y los suma.
+            self.puntajes[vehiculo.equipo] += puntos_ganados
+            print(f"{vehiculo.nombre} entregó {cantidad} recursos (+{puntos_ganados} pts).")
+
+            # Vacia el inventario.
+            vehiculo.recursos.clear()
 
     def _relocate_mobile_mine(self):
             """

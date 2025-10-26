@@ -22,6 +22,7 @@ class vehicle:
         else:
             self.viajesActuales = viajesActuales
 
+        self.recursos = []
         self.equipo = equipo
         self.estado = estado
         self.camino = []       # Lista de pasos a recorrer (en coordenadas de grid LOCALES)
