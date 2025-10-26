@@ -342,6 +342,40 @@ class MapManager:
             # Vacia el inventario.
             vehiculo.recursos.clear()
 
+# Función para verificar las condiciones de parada de la simulación.
+    def check_condiciones_parada(self):
+        #**
+        # Devuelve True cuando debe parar la simulación.
+        # Cuando no haya más recursos disponibles, se detiene la simulación.
+        # Cuando no hayan más vehículos en estado "activo" en un equipo, se detiene la simulación.
+        # #
+        
+        # Revisa si quedan recursos disponibles 
+        recursos_restantes = any(isinstance(e, Recurso) for e in self.entities)
+        
+        # Contar vehículos activos por equipo
+        vehiculos_activos = {
+            'Rojo': sum(1 for v in self.vehicles if v.equipo == "Rojo" and v.estado == "activo"),
+            'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado == "activo")
+        }
+        
+        # Condiciones de parada
+        if not recursos_restantes:
+            print("[FIN] No quedan más recursos.")
+            return True
+        
+        if vehiculos_activos['Rojo'] == 0:
+            print("[FIN] Todos los vehículos del equipo Rojo están explotados.")
+            return True
+        
+        if vehiculos_activos['Azul'] == 0:
+            print("[FIN] Todos los vehículos del equipo Azul están explotados.")
+            return True
+        
+        # Si ninguna condición se cumple, no se detiene la simulación.
+        return False
+
+
     def _relocate_mobile_mine(self):
             """
             Reubica la Mina G1 de forma segura (sin colisionar con entidades estáticas).

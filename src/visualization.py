@@ -388,7 +388,6 @@ def main_loop():
                         
                         print(f"[TICK] Avanzado un paso (Time Instance: {engine.time_instance}). Mensaje: {event_message}")
 
-
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             
@@ -398,7 +397,12 @@ def main_loop():
             if event_message != "Simulación avanzada sin eventos mayores.":
                 print(f"[PLAYING] Evento: {event_message}")
                                                                 
-
+        
+        # --- Verificar condiciones de fin de simulación ---
+        if engine.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
+            SIMULATION_STATE = "STOPPED"
+            print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+        
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)
 
