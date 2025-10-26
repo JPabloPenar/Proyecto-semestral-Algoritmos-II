@@ -50,7 +50,7 @@ class MapManager:
         .join une diferentes partes de la ruta de un archivo
         En nuestro caso une: 
         1. self.base_dir(nombre de la carpeta donde se almacenan todos los estados) 
-        2. f-string que crea el nombre del archivo (index:04 es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
+        2. f-string que crea el nombre del archivo (index:04d es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
             I.E: state_0000.pickle
         """
         return os.path.join(self.base_dir, f"state_{index:04d}.pickle")
@@ -403,7 +403,6 @@ class MapManager:
         self._initial_placement_done = True
 
     
-    #esta funcion marca con unos el radio de explosion de las minas
 
     def _marcar_area_mina(self, mina: Mina, valor=1):
         fila_c, col_c = mina.fila, mina.columna
@@ -412,8 +411,6 @@ class MapManager:
         filas, cols = self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES
 
         #estas variables son para verificar que el radio no se vaya a salir del mapa, que daría index error
-        #si quisieramos poner ahï un uno, de todas formas eso no debería pasar porque se supone que las minas 
-        #spawnean bien, pero bueno... es, una lastima porque eso no anda bien
         max_fila = min(filas, fila_c + radio + 1)
         min_fila =  max(0, fila_c - radio)
 
@@ -428,19 +425,41 @@ class MapManager:
                     # Verifica si la celda (f, c) está dentro del radio
                     distance = math.sqrt((c - col_c)**2 + (f - fila_c)**2)
                     if distance <= radio:
-                        self.grid_maestra[f][c] = valor
+                        
+                        celda_actual = self.grid_maestra[f][c]
+
+                        # Solo modificamos la celda si estaba libre (0) o ya marcada como obstáculo (1).
+                        # Esto evita sobrescribir objetos Recurso.
+                        if valor == 1:
+                            if celda_actual == 0: 
+                                self.grid_maestra[f][c] = valor
+                        elif valor == 0:
+                            if celda_actual == 1: 
+                                self.grid_maestra[f][c] = valor
         
         # Mina Lineal Horizontal (T1)
         elif mina.tipo == "T1":
             
             for c in range(min_col, max_col + 1): 
-                self.grid_maestra[mina.fila][c] = valor
+                celda_actual = self.grid_maestra[mina.fila][c]
+                if valor == 1:
+                    if celda_actual == 0:
+                        self.grid_maestra[mina.fila][c] = valor
+                elif valor == 0:
+                    if celda_actual == 1:
+                        self.grid_maestra[mina.fila][c] = valor
 
         # Mina Lineal Vertical (T2)
         elif mina.tipo == "T2":
 
             for f in range(min_fila, max_fila + 1): 
-                self.grid_maestra[f][mina.columna] = valor
+                celda_actual = self.grid_maestra[f][mina.columna]
+                if valor == 1:
+                    if celda_actual == 0:
+                        self.grid_maestra[f][mina.columna] = valor
+                elif valor == 0:
+                    if celda_actual == 1:
+                        self.grid_maestra[f][mina.columna] = valor
 
 
     def _actualizar_grid_minas(self):

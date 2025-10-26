@@ -1,5 +1,3 @@
-# visualization.py (MODIFICADO)
-
 import pygame
 import sys
 import os
@@ -14,8 +12,6 @@ from game_engine import update_simulation, update_and_get_next_state
 
 # --- Configuración y Constantes ---
 pygame.init()
-
-# ... (El resto de las constantes y configuración inicial, como colores y tamaños, se mantienen igual) ...
 
 # Definición de Colores (RGB)
 BLANCO = (255, 255, 255)
@@ -52,7 +48,10 @@ reloj = pygame.time.Clock()
 SIMULATION_FPS = 60 # 60 ticks por segundo
 SIMULATION_STATE = "STOPPED" # STOPPED, INITIALIZED, PLAYING
 
-# ... (El resto de las definiciones de rectángulos, botones y fuentes se mantienen) ...
+# NUEVAS CONSTANTES PARA CONTROLAR LA VELOCIDAD DE LA LÓGICA
+GAME_TICK_RATE = 10 # Lógica del juego se ejecuta cada 10 frames (60 FPS / 10 = 6 ticks/segundo)
+# -------------------------------------------------------------
+
 ANCHO_BASE = 150
 ALTO_BASE = 350
 ANCHO_TERRENO = ANCHO_VENTANA - (2 * ANCHO_BASE)
@@ -263,7 +262,9 @@ def main_loop():
     global SIMULATION_STATE, engine, flota_total
     ejecutando = True
     
-
+    # Inicialice el contador de frames para controlar el tick de la lógica
+    frame_counter = 0 
+    
     engine.distribute_entities() # Inicialización forzada de minas/recursos al inicio
     engine.guardar_estado_historial()# Inicializacion del puntero
 
@@ -293,10 +294,14 @@ def main_loop():
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
-
-                        # for veh in flota_total:
-                        #     veh.agragarobjetivo(300,300)
-                        #     veh.calcular_camino
+                        
+                        # **AGREGADO:** Inicializar la búsqueda de objetivos al presionar Play
+                        for veh in flota_total:
+                            # Forzar la búsqueda del recurso más cercano si no tiene un objetivo actual
+                            if veh.objetivo_actual is None and veh.viajesActuales > 0:
+                                veh.buscar_recurso_mas_cercano(engine.grid_maestra)
+                        # -------------------------------------------------------------
+                        
                         print(f"[PLAYING] Simulación Iniciada (Time Instance: {engine.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
@@ -392,11 +397,21 @@ def main_loop():
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             
-            # **LLAMA a la función segregada para avanzar un tick**
-            event_message = update_simulation(engine, flota_total)
+            # --- NUEVA LÓGICA DE CONTROL DE TICK ---
+            frame_counter += 1
             
-            if event_message != "Simulación avanzada sin eventos mayores.":
-                print(f"[PLAYING] Evento: {event_message}")
+            # Solo ejecuta la simulación si se alcanza el ratio deseado
+            if frame_counter >= GAME_TICK_RATE:
+                
+                # **LLAMA a la función segregada para avanzar un tick**
+                event_message = update_simulation(engine, flota_total)
+                
+                if event_message != "Simulación avanzada sin eventos mayores.":
+                    print(f"[PLAYING] Evento: {event_message}")
+                
+                # Reiniciar el contador para el siguiente tick
+                frame_counter = 0 
+            # --------------------------------------
                                                                 
 
         # 3. Dibujo (Esta sección se mantiene igual)
