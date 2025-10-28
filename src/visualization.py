@@ -12,6 +12,7 @@ from game_engine import update_simulation, update_and_get_next_state
 
 # --- Configuración y Constantes ---
 pygame.init()
+CELL_SIZE = 5
 
 # Definición de Colores (RGB)
 BLANCO = (255, 255, 255)
@@ -49,7 +50,7 @@ SIMULATION_FPS = 60 # 60 ticks por segundo
 SIMULATION_STATE = "STOPPED" # STOPPED, INITIALIZED, PLAYING
 
 # NUEVAS CONSTANTES PARA CONTROLAR LA VELOCIDAD DE LA LÓGICA
-GAME_TICK_RATE = 10 # Lógica del juego se ejecuta cada 10 frames (60 FPS / 10 = 6 ticks/segundo)
+GAME_TICK_RATE = 5 # Lógica del juego se ejecuta cada 10 frames (60 FPS / 10 = 6 ticks/segundo)
 # -------------------------------------------------------------
 
 ANCHO_BASE = 150
@@ -98,41 +99,40 @@ fuente_boton = pygame.font.Font(None, 30)
 
 # --- Funciones de Dibujo (se mantienen igual) ---
 def draw_vehicle(surface, vehicle_type, color, x, y):
-    """Dibuja una representación de un vehículo."""
+    center_x = x + CELL_SIZE // 2 
+    center_y = y + CELL_SIZE // 2
     
-    VEHICLE_WIDTH = 20 
-    VEHICLE_HEIGHT = 12
-    WHEEL_RADIUS = 3
-    
-    if vehicle_type == "Jeep":
-        # Rectángulo (cuerpo)
-        pygame.draw.rect(surface, color, (x, y, VEHICLE_WIDTH, VEHICLE_HEIGHT), border_radius=3)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
+    if vehicle_type == "Camion":
+        # Tamaño GRANDE (casi 2x2 celdas). Es el más grande.
+        CAMION_W = CELL_SIZE * 1.8 
+        CAMION_H = CELL_SIZE * 1.5 
+        
+        # Posición: esquina superior izquierda del dibujo, ajustada para centrar
+        draw_x = x - (CAMION_W - CELL_SIZE) / 2
+        draw_y = y - (CAMION_H - CELL_SIZE) / 2
+        
+        pygame.draw.rect(surface, color, (draw_x, draw_y, CAMION_W, CAMION_H), border_radius=3)
+        
+    elif vehicle_type == "Auto" or vehicle_type == "Jeep": 
+        # Tamaño MEDIANO (ocupa la mayor parte de 1x1 celda)
+        AUTO_SIZE = CELL_SIZE * 0.9 
+        
+        # Posición: esquina superior izquierda del dibujo, ajustada para centrar
+        draw_x = x + (CELL_SIZE - AUTO_SIZE) / 2
+        draw_y = y + (CELL_SIZE - AUTO_SIZE) / 2
+        
+        pygame.draw.rect(surface, color, (draw_x, draw_y, AUTO_SIZE, AUTO_SIZE), border_radius=2)
         
     elif vehicle_type == "Moto":
-        # Cuerpo delgado y ruedas más pequeñas
-        pygame.draw.line(surface, color, (x, y + 8), (x + VEHICLE_WIDTH - 5, y + 8), 4)
-        pygame.draw.circle(surface, NEGRO, (x + 4, y + 12), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 8, y + 12), WHEEL_RADIUS)
+        # Tamaño PEQUEÑO (ocupa menos de 1x1 celda). Es el más pequeño.
+        MOTO_RADIUS = CELL_SIZE * 0.3
         
-    elif vehicle_type == "Camion":
-        # Rectángulo más largo y alto (camión)
-        TRUCK_WIDTH = 30
-        TRUCK_HEIGHT = 15
-        pygame.draw.rect(surface, color, (x, y, TRUCK_WIDTH, TRUCK_HEIGHT), border_radius=4)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
-        pygame.draw.circle(surface, NEGRO, (x + TRUCK_WIDTH - 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
+        # El dibujo se centra directamente en la celda.
+        pygame.draw.circle(surface, color, (center_x, center_y), MOTO_RADIUS)
         
-    elif vehicle_type == "Auto":
-        # Rectángulo más plano y bajo
-        CAR_HEIGHT = 15
-        pygame.draw.rect(surface, color, (x, y + 3, VEHICLE_WIDTH - 5, CAR_HEIGHT), border_radius=3)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
+    else:
+        # Dibujo por defecto
+        pygame.draw.circle(surface, color, (center_x, center_y), CELL_SIZE * 0.4)
 
 def inicializar_equipos(rect_base1, rect_base2):
     """Crea objetos de vehículo y les asigna posiciones de inicio distribuidas dentro de su base."""
@@ -404,10 +404,7 @@ def main_loop():
             if frame_counter >= GAME_TICK_RATE:
                 
                 # **LLAMA a la función segregada para avanzar un tick**
-                event_message = update_simulation(mmanager, flota_total)
-                
-                if event_message != "Simulación avanzada sin eventos mayores.":
-                    print(f"[PLAYING] Evento: {event_message}")
+                update_simulation(mmanager, flota_total)
                 
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 

@@ -30,8 +30,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     if mmanager.time_instance % SAVE_HISTORY_TICK_RATE == 0:
         mmanager.guardar_estado_historial()
 
-    # Mensajes para registro de eventos
-    event_log = []
 
     for veh in flota_total:
         """
@@ -66,7 +64,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             # Lógica de "descarga": Reinicia la capacidad a su máximo
             veh.viajesActuales = veh.viajesTotales 
             veh.objetivo_actual = None # Cancela cualquier objetivo de base
-            event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) 'descargó' y está listo para nuevos viajes.")
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
         veh.actualizar_objetivo(mmanager.grid_maestra)
@@ -85,13 +82,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     # Intenta buscar el recurso más cercano. Esta función ya asigna el camino y el objetivo.
                     recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
                     
-                    if recurso_encontrado:
-                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) inició viaje hacia Recurso en {recurso_encontrado}")
-                    else:
-                        # Si falló en encontrar recurso O falló en encontrar camino: Aplicar cooldown
-                        if hasattr(veh, 'search_cooldown'):
-                             veh.search_cooldown = 30 # Esperar 30 ticks antes de volver a intentar
-                             event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) Recurso no encontrado o inaccesible. Cooldown.")
+                    if not recurso_encontrado and hasattr(veh, 'search_cooldown'):
+                        veh.search_cooldown = 30 # Esperar 30 ticks antes de volver a intentar
 
 
                 # --- LÓGICA DE VOLVER A BASE ---
@@ -101,13 +93,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     veh.volver_a_base(mmanager.grid_maestra)
                     
                     # Si 'volver_a_base' falló en encontrar camino (veh.camino está vacío)
-                    if not veh.camino: 
+                    if not veh.camino and hasattr(veh, 'search_cooldown'): 
                         # Aplicar cooldown para no reintentar la costosa búsqueda en cada frame
-                        if hasattr(veh, 'search_cooldown'):
-                            veh.search_cooldown = 30 
-                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) Base inaccesible. Cooldown.")
-                    else:
-                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no encontró recurso y regresa a base.")
+                        veh.search_cooldown = 30 
             # ----------------------------------------
             # Si está en cooldown, no se ejecuta la búsqueda ni la vuelta a base.
 
@@ -123,7 +111,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     # El vehículo explota y se desactiva
                     veh.explotar()
                     veh.camino = [] # Detiene el movimiento
-                    event_log.append(f"¡Explosión! {veh.__class__.__name__} ({veh.equipo}) en T={mmanager.time_instance}")
                     # TODO: consultar si quitar la mina. Por ahora la dejamos.
 
                 elif collision_type == "recurso":
@@ -134,26 +121,18 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                                   (veh.carga == "personas" and isinstance(entity, Persona)) or 
                                   (veh.carga != "personas" and not isinstance(entity, Persona) and veh.carga == "todo")) # redundante con 'todo'
 
-                    if compatible:
-                        # 2. Verifica capacidad
-                        if veh.viajesActuales > 0:
-                            
-                            # Recoger: disminuir viajes disponibles y quitar de la grid
-                            veh.viajesActuales -= 1 # Disminuye viajesActuales
-                            event_log.append(f"({veh.equipo}) recogió Recurso ({entity.__class__.__name__}) en ({veh.columna}, {veh.fila})")
-                            
-                            # Quitar el recurso de la grid y de la lista de entidades
-                            mmanager.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
-                            mmanager.entities.remove(entity)
-                            
-                            # 3. Al recoger, el vehículo automáticamente debe dirigirse a la base.
-                            veh.objetivo_actual = None # Cancela el objetivo (que era el recurso)
-                            veh.volver_a_base(mmanager.grid_maestra)
-                            
-                        else:
-                            event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
-                    else:
-                         event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no es compatible con {entity.__class__.__name__}.")
+                    if compatible and veh.viajesActuales > 0:
+                        # 2. Verifica capacidad    
+                        # Recoger: disminuir viajes disponibles y quitar de la grid
+                        veh.viajesActuales -= 1 # Disminuye viajesActuales
+                        # Quitar el recurso de la grid y de la lista de entidades
+                        mmanager.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
+                        if entity in mmanager.entities:
+                            mmanager.entities.remove(entity)    
+                        
+                        # 3. Al recoger, el vehículo automáticamente debe dirigirse a la base.
+                        veh.objetivo_actual = None # Cancela el objetivo (que era el recurso)
+                        veh.volver_a_base(mmanager.grid_maestra)
 
                 
                 elif collision_type == "vehiculo":
@@ -161,13 +140,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     veh.camino = [] # Detiene el movimiento
                     entity.explotar()
                     entity.camino = []
-                    event_log.append(f"Choque de {veh.__class__.__name__} y {entity.__class__.__name__}")
                                                         
 
-    if event_log:
-        return " | ".join(event_log)
-    else:
-        return "Simulación avanzada sin eventos mayores."
+    return
 
 
 def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
