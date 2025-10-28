@@ -1,9 +1,9 @@
-from pathfinding import bfs
+from pathfinding import bfs, bfs_multiple_destino
 from resources import Persona, Recurso # Importar para isinstance checks y type hinting en buscar_recurso_mas_cercano
 import math 
 
 # Atributos de map_manager
-CELL_SIZE = 10
+CELL_SIZE = 5
 # OFFSET_COL y OFFSET_FILA han sido eliminadas ya que BFS usa coordenadas globales
 
 class vehicle:    
@@ -144,7 +144,8 @@ class vehicle:
     # *** FUNCIÓN CORREGIDA (FIX de BFS al buscar recursos) ***
     def buscar_recurso_mas_cercano(self, grid):
             """
-            Busca el recurso más cercano en la grid al que el vehículo puede ir.
+            Busca el recurso más cercano en la grid al que el vehículo puede ir 
+            usando una sola pasada de BFS.
             """
             start = (self.fila, self.columna) 
             filas, cols = len(grid), len(grid[0])
@@ -152,59 +153,39 @@ class vehicle:
             if self.viajesActuales <= 0:
                 return None
                 
-            recursos_disponibles = []
+            recursos_disponibles_pos = []
             
-            # 1. Recorrer la grid para encontrar todos los recursos disponibles y compatibles
+            # 1. Recorrer la grid para encontrar todos los destinos de recursos
             for f in range(filas):
                 for c in range(cols):
                     celda_valor = grid[f][c]
                     
-                    # Un recurso es una instancia de Recurso (que tiene el atributo 'puntos')
                     if isinstance(celda_valor, Recurso):
                         recurso = celda_valor
                         
                         # 2. Aplicar restricción de carga/tipo de vehículo:
                         if self.carga == "todo" or (self.carga == "personas" and isinstance(recurso, Persona)):
-                            recursos_disponibles.append(((f, c), recurso))
+                            recursos_disponibles_pos.append((f, c))
                             
-            if not recursos_disponibles:
+            if not recursos_disponibles_pos:
                 return None # No hay recursos en el mapa compatibles
                 
-            # 3. Encontrar el recurso más cercano usando BFS
-            mejor_destino = None
-            camino_mas_corto = None
-            min_longitud = float('inf')
-
-            for (destino_fila, destino_col), recurso in recursos_disponibles:
-                destino = (destino_fila, destino_col)
-                
-                # --- FIX DE BFS: HACER EL RECURSO ALCANZABLE ---
-                # 1. Crear una copia de la cuadrícula para el pathfinding
-                temp_grid = [row[:] for row in grid] 
-                
-                # 2. Marcar la celda del recurso de destino como LIBRE (0) en la copia temporal
-                # Esto permite que el BFS entre a la celda.
-                temp_grid[destino_fila][destino_col] = 0
-                
-                # 3. Usar la cuadrícula TEMPORAL para calcular el camino.
-                camino = bfs(temp_grid, start, destino)
-                
-                # --- FIN DEL FIX ---
-                
-                if camino:
-                    longitud = len(camino)
-                    if longitud < min_longitud:
-                        min_longitud = longitud
-                        mejor_destino = destino
-                        camino_mas_corto = camino
+            # 3. Preparar la grid para la búsqueda (marcar todos los recursos como LIBRES)
+            temp_grid = [row[:] for row in grid] 
+            for f, c in recursos_disponibles_pos:
+                temp_grid[f][c] = 0 # El recurso es el destino, no un obstáculo
             
-            # 4. Asignar el camino y el objetivo
+            # 4. Llamar a la función optimizada de BFS
+            mejor_destino, camino_mas_corto = bfs_multiple_destino(temp_grid, start, recursos_disponibles_pos)
+            
+            # 5. Asignar el camino y el objetivo
             if mejor_destino:
                 self.camino = camino_mas_corto
                 self.objetivo_actual = mejor_destino
                 return mejor_destino
             else:
                 return None
+    
 # ----- Subclases (se mantienen igual) -----
 
 class jeep(vehicle):

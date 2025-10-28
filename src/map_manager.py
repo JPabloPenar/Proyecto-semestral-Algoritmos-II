@@ -521,6 +521,6 @@ class MapManager:
             self.is_relocating = True   # Prepara la reubicación para el siguiente tick
 
         # Guardamos el estado de juego despues de la logica del tick
-        self.guardar_estado_historial()
+        #self.guardar_estado_historial()
         
         return self.time_instance

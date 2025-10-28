@@ -11,13 +11,14 @@ BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130
 BASE_MIN_ROW = 10
 BASE_MAX_ROW = 79
+SAVE_HISTORY_TICK_RATE = 5
 
-def update_simulation(engine: MapManager, flota_total: list) -> str:
+def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     """
     Ejecuta un paso de la simulación (un "tick") con lógica de cooldown.
 
     Args:
-        engine: La instancia actual de MapManager (el motor del juego/mapa).
+        mmanager: La instancia actual de MapManager (el motor del mapa).
         flota_total: La lista de todos los vehículos en la simulación.
 
     Returns:
@@ -25,8 +26,10 @@ def update_simulation(engine: MapManager, flota_total: list) -> str:
     """
     
     # Avanza la instancia de tiempo. Maneja la aparición/desaparición de Mina G1.
-    engine.update_time()
-    
+    mmanager.update_time()
+    if mmanager.time_instance % SAVE_HISTORY_TICK_RATE == 0:
+        mmanager.guardar_estado_historial()
+
     # Mensajes para registro de eventos
     event_log = []
 
@@ -66,38 +69,53 @@ def update_simulation(engine: MapManager, flota_total: list) -> str:
             event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) 'descargó' y está listo para nuevos viajes.")
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
-        veh.actualizar_objetivo(engine.grid_maestra)
+        veh.actualizar_objetivo(mmanager.grid_maestra)
 
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
-        if veh.objetivo_actual is None and veh.viajesActuales > 0:
+        if veh.objetivo_actual is None: 
             
             # [MODIFICACIÓN 2: Lógica de Cooldown]
-            # Solo busca si el cooldown terminó (o si el atributo no existe todavía).
+            # Solo busca si el cooldown terminó.
             can_search = not hasattr(veh, 'search_cooldown') or veh.search_cooldown == 0
             
             if can_search:
-                # Buscar el recurso más cercano. Esta función ya asigna el camino y el objetivo.
-                recurso_encontrado = veh.buscar_recurso_mas_cercano(engine.grid_maestra)
                 
-                if recurso_encontrado:
-                    event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) inició viaje hacia Recurso en {recurso_encontrado}")
-                else:
-                    # Si no se encontró recurso O no se encontró un camino accesible:
-                    # Aplicar cooldown para no reintentar inmediatamente la búsqueda costosa.
-                    if hasattr(veh, 'search_cooldown'):
-                         veh.search_cooldown = 30 # Esperar 30 ticks antes de volver a intentar
+                # --- LÓGICA DE BÚSQUEDA DE RECURSO ---
+                if veh.viajesActuales > 0:
+                    # Intenta buscar el recurso más cercano. Esta función ya asigna el camino y el objetivo.
+                    recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
+                    
+                    if recurso_encontrado:
+                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) inició viaje hacia Recurso en {recurso_encontrado}")
+                    else:
+                        # Si falló en encontrar recurso O falló en encontrar camino: Aplicar cooldown
+                        if hasattr(veh, 'search_cooldown'):
+                             veh.search_cooldown = 30 # Esperar 30 ticks antes de volver a intentar
+                             event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) Recurso no encontrado o inaccesible. Cooldown.")
+
+
+                # --- LÓGICA DE VOLVER A BASE ---
+                # Si no encontró objetivo (o está en cooldown por fallo anterior) Y no está en base, debe volver a base.
+                if veh.objetivo_actual is None and not is_in_base: 
+                    # Intenta volver a base.
+                    veh.volver_a_base(mmanager.grid_maestra)
+                    
+                    # Si 'volver_a_base' falló en encontrar camino (veh.camino está vacío)
+                    if not veh.camino: 
+                        # Aplicar cooldown para no reintentar la costosa búsqueda en cada frame
+                        if hasattr(veh, 'search_cooldown'):
+                            veh.search_cooldown = 30 
+                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) Base inaccesible. Cooldown.")
+                    else:
+                        event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no encontró recurso y regresa a base.")
             # ----------------------------------------
-            
-            # Si no encontró objetivo (o está en cooldown) Y no está en base, debe volver a base.
-            if veh.objetivo_actual is None and not is_in_base: 
-                veh.volver_a_base(engine.grid_maestra)
-                event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no encontró recurso y regresa a base.")
+            # Si está en cooldown, no se ejecuta la búsqueda ni la vuelta a base.
 
 
         # 3. Lógica de Colisión (solo si está activo)
         if veh.estado == "activo":
             
-            collision_type, entity = engine.check_vehicle_collisions(veh)
+            collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and entity:
                 
@@ -105,7 +123,7 @@ def update_simulation(engine: MapManager, flota_total: list) -> str:
                     # El vehículo explota y se desactiva
                     veh.explotar()
                     veh.camino = [] # Detiene el movimiento
-                    event_log.append(f"¡Explosión! {veh.__class__.__name__} ({veh.equipo}) en T={engine.time_instance}")
+                    event_log.append(f"¡Explosión! {veh.__class__.__name__} ({veh.equipo}) en T={mmanager.time_instance}")
                     # TODO: consultar si quitar la mina. Por ahora la dejamos.
 
                 elif collision_type == "recurso":
@@ -125,12 +143,12 @@ def update_simulation(engine: MapManager, flota_total: list) -> str:
                             event_log.append(f"({veh.equipo}) recogió Recurso ({entity.__class__.__name__}) en ({veh.columna}, {veh.fila})")
                             
                             # Quitar el recurso de la grid y de la lista de entidades
-                            engine.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
-                            engine.entities.remove(entity)
+                            mmanager.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
+                            mmanager.entities.remove(entity)
                             
                             # 3. Al recoger, el vehículo automáticamente debe dirigirse a la base.
                             veh.objetivo_actual = None # Cancela el objetivo (que era el recurso)
-                            veh.volver_a_base(engine.grid_maestra)
+                            veh.volver_a_base(mmanager.grid_maestra)
                             
                         else:
                             event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
@@ -152,7 +170,7 @@ def update_simulation(engine: MapManager, flota_total: list) -> str:
         return "Simulación avanzada sin eventos mayores."
 
 
-def update_and_get_next_state(engine: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
+def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
     """
     Avanza la simulación un paso (para el botón '>>') y devuelve el nuevo estado.
     
@@ -160,11 +178,11 @@ def update_and_get_next_state(engine: MapManager, flota_total: list) -> tuple[Ma
     """
 
     # 1. Guarda la metadata de historial antes de decrementar (por seguridad en el replay)
-    current_history = engine.history
-    current_base_dir = engine.base_dir
+    current_history = mmanager.history
+    current_base_dir = mmanager.base_dir
     
     # 2. Ejecuta el tick de la simulación y genera eventos
-    event_message = update_simulation(engine, flota_total)
+    event_message = update_simulation(mmanager, flota_total)
     
     # El motor 'engine' ya se actualizó en update_simulation y MapManager.update_time()
     
@@ -174,4 +192,4 @@ def update_and_get_next_state(engine: MapManager, flota_total: list) -> tuple[Ma
     #    de 'visualization.py' ya está sincronizada por referencia).
     
     # Retornamos el motor actualizado, el mensaje de estado y el nuevo estado (STOPPED)
-    return engine, "STOPPED", event_message
+    return mmanager, "STOPPED", event_message
