@@ -199,74 +199,66 @@ class MapManager:
 
         SAFETY_MARGIN_GRID = 1.5
 
-        for entity in self.entities:
+        # 1. Chequeo de RECURSOS (Solo verifica la celda: Si hay algo que no sea 0, ya está ocupado)
+        if isinstance(new_entity, Recurso):
+            celda_valor = self.grid_maestra[fila][col]
+            # Si la celda no es espacio libre (0), hay una colisión.
+            if celda_valor != 0: 
+                return True
             
-            # --- 1. Chequeo de colisión entre MINAS y MINAS ---
-            if isinstance(entity, Mina) and isinstance(new_entity, Mina):
+        # 2. Chequeo MINA MÓVIL con vehículos
+        if isinstance(new_entity, Mina) and new_entity.tipo == "G1":
 
-                SUMA_RADIOS = entity.radio + new_entity.radio
-                
-                
-                # Minas Circulares (O1, O2)
-                if entity.tipo in ["O1", "O2"]:
-                    # Distancia entre centros de celdas de grid (teorema de Pitágoras)
-                    distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                    # La distancia de separación debe ser mayor al radio de efecto en grid, más un margen
-                    if distance < SUMA_RADIOS + SAFETY_MARGIN_GRID: 
-                        return True
+            for veh in self.vehicles:
 
-                # Mina T1 (Horizontal)
-                elif entity.tipo == "T1":
-                    # Colisión si la nueva entidad cae dentro de la franja vertical de la mina
-                    if abs(entity.fila - fila) < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                        
-                # Mina T2 (Vertical) - Chequea distancia en X (columna)
-                elif entity.tipo == "T2":
-                    # Colisión si la nueva entidad cae dentro de la franja horizontal de la mina
-                    if abs(entity.columna - col) < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-            
-            # Chequeo de colisión entre MINAS y RECURSOS
-            elif isinstance(entity, Mina) and isinstance(new_entity, Recurso):
-                
-                # Minas Circulares (O1, O2)
-                if entity.tipo in ["O1", "O2"]:
-                    distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                    if distance < entity.radio + SAFETY_MARGIN_GRID: 
-                        return True
-                        
-                # Mina T1 (Horizontal)
-                elif entity.tipo == "T1":
-                    distance_y = abs(entity.fila - fila)
-                    if distance_y < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                        
-                # Mina T2 (Vertical)
-                elif entity.tipo == "T2":
-                    distance_x = abs(entity.columna - col)
-                    if distance_x < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                    
-            # --- NUEVO CHEQUEO: MINA MÓVIL vs. RECURSO EXISTENTE ---
-            # Verifica si una nueva mina (Mina G1, que se reubica) colisiona con un Recurso existente
-            elif isinstance(entity, Recurso) and isinstance(new_entity, Mina):
-                # Usamos el radio de la nueva mina (G1) como área a evitar en torno al Recurso.
-                # Colisión circular (distancia del centro del recurso al centro de la mina)
-                distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                
-                # Colisión si la distancia es menor al radio de la mina G1 + margen
+                distance = math.sqrt((veh.columna - col)**2 + (veh.fila - fila)**2)
                 if distance < new_entity.radio + SAFETY_MARGIN_GRID: 
                     return True
-                                       
-            # --- 2. Chequeo de colisión entre RECURSOS (grid units) ---
-            if isinstance(new_entity, Recurso) and isinstance(entity, Recurso):
-                # Margen pequeño de 1 unidad de grid para evitar apilamiento
-                distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                if distance < 1: 
-                    return True
-                         
+            
+        # 3. Chequeo de MINAS (Estáticas o Móviles G1)
+        if isinstance(new_entity, Mina):
+        
+
+            for entity in self.entities:
+            
+                # --- 1. Chequeo de colisión entre MINAS y MINAS ---
+                if isinstance(entity, Mina):
+
+                    SUMA_RADIOS = entity.radio + new_entity.radio
+                
+                
+                    # Minas Circulares (O1, O2)
+                    if entity.tipo in ["O1", "O2"]:
+                        # Distancia entre centros de celdas de grid (teorema de Pitágoras)
+                        distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                        # La distancia de separación debe ser mayor al radio de efecto en grid, más un margen
+                        if distance < SUMA_RADIOS + SAFETY_MARGIN_GRID: 
+                            return True
+
+                    # Mina T1 (Horizontal)
+                    elif entity.tipo == "T1":
+                        # Colisión si la nueva entidad cae dentro de la franja vertical de la mina
+                        if abs(entity.fila - fila) < entity.radio + SAFETY_MARGIN_GRID:
+                            return True
+                        
+                    # Mina T2 (Vertical) - Chequea distancia en X (columna)
+                    elif entity.tipo == "T2":
+                        # Colisión si la nueva entidad cae dentro de la franja horizontal de la mina
+                        if abs(entity.columna - col) < entity.radio + SAFETY_MARGIN_GRID:
+                            return True
+            
+                # Chequeo de colisión entre MINAS y RECURSOS
+                elif isinstance(entity, Recurso):
+                
+                    # --- NUEVO CHEQUEO: MINA MÓVIL vs. RECURSO EXISTENTE ---
+                    # Verifica si una nueva mina (Mina G1, que se reubica) colisiona con un Recurso existente
+                    if new_entity.tipo == "G1":
+                        distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                        if distance < new_entity.radio + SAFETY_MARGIN_GRID: 
+                            return True
+                                                
         return False
+
 
     def check_vehicle_collisions(self, veh):
 
@@ -281,7 +273,7 @@ class MapManager:
             # Colisión con un Recurso
             return "recurso", entity_at_cell
 
-        elif isinstance(entity_at_cell, vehicle) and entity_at_cell is not veh: 
+        elif isinstance(entity_at_cell, vehicle): 
             # Colisión con otro Vehículo (asegura que no sea el mismo vehículo)
             return "vehiculo", entity_at_cell
         
@@ -289,6 +281,29 @@ class MapManager:
             return "mina", entity_at_cell
                     
         return None, None
+    
+
+    # --- EN map_manager.py ---
+
+    def _marcar_vehiculo(self, veh, valor=None):
+        """Marca la posición del vehículo en la grid_maestra (2) o la borra (0)."""
+        fila, col = veh.fila, veh.columna
+
+        if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
+
+            celda_actual = self.grid_maestra[fila][col]
+
+            # Solo se borra si no estamos borrando un recurso o una mina.
+            # Si el valor es 0 (borrar), solo se borra si había un vehículo (2) o espacio libre (0).
+            if valor == 0:
+                if celda_actual is veh:
+                    celda_actual = 0
+            elif valor is None:
+                # Sobrescribe solo si hay espacio libre (0).
+                # Si hay un Recurso o Mina (1), el movimiento se detuvo antes (colisión).
+                if celda_actual == 0: 
+                    celda_actual = veh
+                # Si no es 0 (es un Recurso o Mina), la colisión se maneja en update_simulation.
 
     def _relocate_mobile_mine(self):
             """
@@ -472,7 +487,7 @@ class MapManager:
 
 
 
-    RELOCATION_TICK = 100
+    RELOCATION_TICK = 35
     def update_time(self):
         self.time_instance += 1
         

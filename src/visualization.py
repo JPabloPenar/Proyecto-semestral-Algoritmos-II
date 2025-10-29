@@ -181,6 +181,7 @@ def inicializar_equipos(rect_base1, rect_base2):
     return flota_1, flota_2
 
 # Inicializar las flotas con los vehículos creados
+#Esto se podria sacar si hacemos que haya que apretar init cuando se abre la ventana de la simulacion
 flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
 flota_total = flota_base1 + flota_base2
 
@@ -259,7 +260,7 @@ mmanager.vehicles = flota_total
 
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
-    global SIMULATION_STATE, mmanager, flota_total
+    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2
     ejecutando = True
     
     # Inicialice el contador de frames para controlar el tick de la lógica
@@ -284,9 +285,15 @@ def main_loop():
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
+                        # 1. Resetear y Reposicionar los vehículos
+                        flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
+                        flota_total = flota_base1 + flota_base2
+                        mmanager.vehicles = flota_total # Sincronizar con el MapManager
+                        
+                        # 2. Distribuir nuevas entidades y reiniciar historial
                         mmanager.distribute_entities()
                         SIMULATION_STATE = "INITIALIZED"
-                        print(f"[INITIALIZED] Nueva distribución generada.")
+                        print(f"[INITIALIZED] Nueva distribución generada y flota reposicionada.")
                     else:
                         print("La simulación debe estar detenida para reinicializar.")
                         

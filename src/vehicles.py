@@ -1,17 +1,19 @@
-from pathfinding import bfs, bfs_multiple_destino
-from resources import Persona, Recurso # Importar para isinstance checks y type hinting en buscar_recurso_mas_cercano
+# vehicles.py (OPTIMIZADO CON A-STAR Y SIN COPIA DE GRID)
+
+# Importamos a_star en lugar de bfs
+from pathfinding import a_star, bfs_multiple_destino
+from resources import Persona, Recurso
 import math 
 
 # Atributos de map_manager
 CELL_SIZE = 5
-# OFFSET_COL y OFFSET_FILA han sido eliminadas ya que BFS usa coordenadas globales
 
 class vehicle:    
     def __init__(self, px, py, viajesTotales, tipoDeCarga, equipo, viajesActuales=None, estado="activo"):
         
         # Coordenadas de PÍXELES (fuente de verdad del movimiento)
-        self.px = px  # Posición X en píxeles
-        self.py = py  # Posición Y en píxeles
+        self.px = px
+        self.py = py
 
         self.carga = tipoDeCarga
         self.viajesTotales = viajesTotales
@@ -23,11 +25,11 @@ class vehicle:
 
         self.equipo = equipo
         self.estado = estado
-        self.camino = []       # Lista de pasos a recorrer (en coordenadas de grid GLOBAL)
+        self.camino = []
         self.objetivos_pendientes = []
-        self.objetivo_actual = None    # Destino actual (fila, columna de GRILLE GLOBAL)
-        self.velocidad = CELL_SIZE     # píxeles por frame (movimiento suave)
-        self.search_cooldown = 0  # Contador de ticks para evitar búsquedas de recursos repetitivas y costosas.
+        self.objetivo_actual = None
+        self.velocidad = 2
+        self.search_cooldown = 0 # Agregado para optimización
 
     @property
     def columna(self):
@@ -50,103 +52,109 @@ class vehicle:
         if len(self.objetivos_pendientes) < self.viajesTotales:
             self.objetivos_pendientes.append((fila, columna))
     
+    # *** MODIFICADA: Robustez y Eliminación de Copia de Grid ***
     def actualizar_objetivo(self, grid):
+        """
+        Replanifica el camino SOLO cuando el vehículo llega a su objetivo final 
+        o si no tiene camino y sí tiene un objetivo.
+        """
         
         # Si no hay objetivos pendientes, vacía el camino y el objetivo
-        if not self.objetivos_pendientes:
+        if not self.objetivos_pendientes and not self.objetivo_actual:
             self.camino = []
             self.objetivo_actual = None
             return
         
-        # Si llega a su objetivo actual (camino vacío) O no tiene objetivo actual:
+        # Condición de Replanificación: Si no tiene objetivo actual O llegó a su destino (camino vacío)
         if self.objetivo_actual is None or not self.camino: 
             
-            self.objetivo_actual = self.objetivos_pendientes.pop(0)
+            # 1. Solo si no tenemos camino, tomamos el siguiente objetivo.
+            if not self.camino:
+                # Si hay objetivos en cola, toma el siguiente
+                if self.objetivos_pendientes:
+                    self.objetivo_actual = self.objetivos_pendientes.pop(0)
+                else:
+                    self.objetivo_actual = None
+                    return # No hay más objetivos
             
-            # Crear una copia de la cuadrícula para el pathfinding al cambiar de objetivo
-            temp_grid = [row[:] for row in grid]
-            
-            # Asegurar que el punto de destino sea 0 en la copia temporal (si fuera un Recurso, por ejemplo)
-            destino_fila, destino_col = self.objetivo_actual
-            if isinstance(temp_grid[destino_fila][destino_col], Recurso):
-                temp_grid[destino_fila][destino_col] = 0
+            # 2. Si el vehículo tiene un objetivo (nuevo o viejo), RE-CALCULA el camino
+            if self.objetivo_actual:
                 
-            self.calcular_camino(temp_grid, self.objetivo_actual)
+                # ELIMINADA: La creación de la copia de la cuadrícula (temp_grid)
+                # ELIMINADA: La modificación temporal de la celda del Recurso.
+                
+                # Usamos la matriz original (grid) y A*
+                self.calcular_camino(grid, self.objetivo_actual)
     
+    # *** MODIFICADA: Uso de A* ***
     def calcular_camino(self, grid, destino):
-        """Calcula el camino más corto hacia un destino (fila, columna) usando BFS."""
+        """Calcula el camino más corto hacia un destino (fila, columna) usando A*."""
         start = (self.fila, self.columna) 
-        self.camino = bfs(grid, start, destino)
+        self.camino = a_star(grid, start, destino) # <--- CAMBIO A A*
     
-    # *** FUNCIÓN CORREGIDA (Eliminación de doble offset) ***
+    # *** SE MANTIENE IGUAL ***
     def mover_por_camino(self):
         if not self.camino:
             return
         
-        # El camino [0] contiene la coordenada GLOBAL (fila_global, col_global)
         fila_global, col_global = self.camino[0]
-
-        # 2. Convertir la posición de GRILLA GLOBAL a PÍXELES de destino
         objetivoX = col_global * CELL_SIZE 
         objetivoY = fila_global * CELL_SIZE
         
-        # Mover en X (usando la posición en PÍXELES)
+        # --- 1. Movimiento en X (Usando min para limitar el paso) ---
         if self.px < objetivoX:
-            self.px += self.velocidad
+            # Movemos la cantidad mínima entre la velocidad y la distancia restante.
+            move_amount = min(self.velocidad, objetivoX - self.px)
+            self.px += move_amount
         elif self.px > objetivoX:
-            self.px -= self.velocidad
-        
-        # Mover en Y (usando la posición en PÍXELES)
+            # Movemos la cantidad mínima entre la velocidad y la distancia restante.
+            move_amount = min(self.velocidad, self.px - objetivoX)
+            self.px -= move_amount
+    
+        # --- 2. Movimiento en Y (Usando min para limitar el paso) ---
         if self.py < objetivoY:
-            self.py += self.velocidad
+            move_amount = min(self.velocidad, objetivoY - self.py)
+            self.py += move_amount
         elif self.py > objetivoY:
-            self.py -= self.velocidad
-        
-        # Si llegamos a la celda (en coordenadas de GRILLE)
-        if self.columna == col_global and self.fila == fila_global:
+            move_amount = min(self.velocidad, self.py - objetivoY)
+            self.py -= move_amount
+    
+        # --- 3. Comprobación de Llegada ---
+        # Si las coordenadas de píxeles coinciden exactamente, hemos llegado.
+        if self.px == objetivoX and self.py == objetivoY:
             self.camino.pop(0)
-            
-            # Aseguramos que las coordenadas de píxeles sean exactas al centro de la celda
-            # (aunque el chequeo por grid es más robusto)
+            # (Las siguientes líneas son técnicamente redundantes pero mantienen la consistencia)
             self.px = objetivoX
             self.py = objetivoY
 
-    # *** FUNCIÓN CORREGIDA (Usa Fila Central Fija y FIX de BFS) ***
+    # *** MODIFICADA: Eliminación de Copia de Grid y Uso de A* ***
     def volver_a_base(self, grid):
         """
         Asigna un camino de vuelta a un punto central de la base del vehículo.
         """
-        # Usamos una fila central fija (aprox. la mitad de 10 a 79)
         BASE_CENTRAL_FILA = 45 
         
         if self.equipo == "Rojo":
-            # Coordenada Global (Fila 45, Columna 15) para Base Roja
             destino_grid = (BASE_CENTRAL_FILA, 15) 
         elif self.equipo == "Azul":
-            # Coordenada Global (Fila 45, Columna 145) para Base Azul
             destino_grid = (BASE_CENTRAL_FILA, 145)
         else:
             return
             
         self.objetivo_actual = destino_grid
         
-        # --- FIX DE BFS: HACER EL DESTINO ALCANZABLE ---
-        # 1. Crear una copia de la cuadrícula
-        temp_grid = [row[:] for row in grid]
-        
-        # 2. Asegurar que el punto de destino de la base sea accesible (marcarlo como 0)
-        destino_fila, destino_col = destino_grid
-        temp_grid[destino_fila][destino_col] = 0
-
-        # 3. Calcular el camino con la cuadrícula temporal
-        self.calcular_camino(temp_grid, destino_grid)
+        # ELIMINADA: Copia y modificación de grid.
+        self.calcular_camino(grid, destino_grid) # ¡Usamos la matriz original y A*!
    
-    # *** FUNCIÓN CORREGIDA (FIX de BFS al buscar recursos) ***
+    # *** SE MANTIENE IGUAL: Uso de BFS Múltiple ***
     def buscar_recurso_mas_cercano(self, grid):
             """
             Busca el recurso más cercano en la grid al que el vehículo puede ir 
             usando una sola pasada de BFS.
             """
+            # Esta función mantiene la copia de grid y BFS Múltiple
+            # porque la lógica de A* Múltiple es más compleja.
+            # El cooldown en game_engine mitiga su costo.
             start = (self.fila, self.columna) 
             filas, cols = len(grid), len(grid[0])
             
@@ -155,7 +163,6 @@ class vehicle:
                 
             recursos_disponibles_pos = []
             
-            # 1. Recorrer la grid para encontrar todos los destinos de recursos
             for f in range(filas):
                 for c in range(cols):
                     celda_valor = grid[f][c]
@@ -163,22 +170,20 @@ class vehicle:
                     if isinstance(celda_valor, Recurso):
                         recurso = celda_valor
                         
-                        # 2. Aplicar restricción de carga/tipo de vehículo:
                         if self.carga == "todo" or (self.carga == "personas" and isinstance(recurso, Persona)):
                             recursos_disponibles_pos.append((f, c))
                             
             if not recursos_disponibles_pos:
-                return None # No hay recursos en el mapa compatibles
+                return None
                 
             # 3. Preparar la grid para la búsqueda (marcar todos los recursos como LIBRES)
             temp_grid = [row[:] for row in grid] 
             for f, c in recursos_disponibles_pos:
                 temp_grid[f][c] = 0 # El recurso es el destino, no un obstáculo
             
-            # 4. Llamar a la función optimizada de BFS
+            # 4. Llamar a la función optimizada de BFS Múltiple
             mejor_destino, camino_mas_corto = bfs_multiple_destino(temp_grid, start, recursos_disponibles_pos)
             
-            # 5. Asignar el camino y el objetivo
             if mejor_destino:
                 self.camino = camino_mas_corto
                 self.objetivo_actual = mejor_destino
@@ -200,7 +205,7 @@ class jeep(vehicle):
             viajesTotales=self.CAPACIDAD, 
             tipoDeCarga=self.TIPO_CARGA
         )
-
+# ... (otras clases de vehículos)
 class moto(vehicle):
     CAPACIDAD = 1
     TIPO_CARGA = "personas"
