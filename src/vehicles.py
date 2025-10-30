@@ -46,6 +46,7 @@ class vehicle:
         self.estado = "inactivo"
         self.camino = []
         self.objetivo_actual = None
+        self.equipo= None
     
     def agregar_objetivo(self, fila, columna):
         # NOTA: Asumimos que fila/columna aquí son coordenadas de la GRILLA GLOBAL (MapManager).
@@ -69,13 +70,20 @@ class vehicle:
         if self.objetivo_actual is None or not self.camino: 
             
             # 1. Solo si no tenemos camino, tomamos el siguiente objetivo.
-            if not self.camino:
+            if not self.camino and self.objetivo_actual:
+                # Si hemos llegado A LA CELDA del objetivo, lo marcamos como completado.
+                # (La recolección del recurso/llegada a base se maneja en game_engine)
+                if self.fila == self.objetivo_actual[0] and self.columna == self.objetivo_actual[1]:
+                    self.objetivo_actual = None
+                    
+            # 2. Solo si el objetivo anterior es None, toma el siguiente.
+            if self.objetivo_actual is None:
                 # Si hay objetivos en cola, toma el siguiente
                 if self.objetivos_pendientes:
                     self.objetivo_actual = self.objetivos_pendientes.pop(0)
                 else:
                     self.objetivo_actual = None
-                    return # No hay más objetivos
+                    return
             
             # 2. Si el vehículo tiene un objetivo (nuevo o viejo), RE-CALCULA el camino
             if self.objetivo_actual:

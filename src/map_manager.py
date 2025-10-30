@@ -275,6 +275,8 @@ class MapManager:
 
         elif isinstance(entity_at_cell, vehicle): 
             # Colisión con otro Vehículo (asegura que no sea el mismo vehículo)
+            if entity_at_cell is veh:
+                return None, None
             return "vehiculo", entity_at_cell
         
         elif entity_at_cell == 1:
@@ -297,12 +299,14 @@ class MapManager:
             # Si el valor es 0 (borrar), solo se borra si había un vehículo (2) o espacio libre (0).
             if valor == 0:
                 if celda_actual is veh:
-                    celda_actual = 0
+                    #celda_actual = 0
+                    self.grid_maestra[fila][col] = 0
             elif valor is None:
                 # Sobrescribe solo si hay espacio libre (0).
                 # Si hay un Recurso o Mina (1), el movimiento se detuvo antes (colisión).
                 if celda_actual == 0: 
-                    celda_actual = veh
+                    #celda_actual = veh
+                    self.grid_maestra[fila][col] = veh
                 # Si no es 0 (es un Recurso o Mina), la colisión se maneja en update_simulation.
 
     def _relocate_mobile_mine(self):

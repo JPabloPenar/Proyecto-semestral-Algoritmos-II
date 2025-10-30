@@ -1,4 +1,4 @@
-# game_engine.py (OPTIMIZADO CON COOLDOWN)
+# game_engine.py (OPTIMIZADO CON COOLDOWN Y COLISIÓN DE MINAS CORREGIDA)
 
 from map_manager import MapManager 
 from resources import Recurso, Persona 
@@ -35,7 +35,20 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             # Se limpia la celda ANTERIOR antes de mover
             mmanager._marcar_vehiculo(veh, valor=0) 
             veh.mover_por_camino()
-            # Se marca la celda NUEVA después de mover
+            
+            # --- CORRECCIÓN DE COLISIÓN DE MINAS (Chequeo ANTES de marcar) ---
+            collision_type, entity = mmanager.check_vehicle_collisions(veh)
+            
+            if collision_type and collision_type.startswith("mina"):
+                # Si choca con una mina, explota ANTES de marcarse en la nueva posición.
+                # Esto garantiza que el vehículo nunca sobrescriba el '1' de la mina.
+                mmanager._marcar_vehiculo(veh, valor=0) 
+                veh.explotar()
+                veh.camino = []
+                continue # Pasa al siguiente vehículo
+            # -----------------------------------------------------------------
+
+            # Se marca la celda NUEVA después de mover (Solo si no explotó con mina)
             mmanager._marcar_vehiculo(veh) 
 
         # 3. Lógica de Objetivos
@@ -53,29 +66,35 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             veh.objetivo_actual = None
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
+        # NOTA: La lógica en vehicle.py ahora se asegura de que objetivo_actual=None 
+        # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
         veh.actualizar_objetivo(mmanager.grid_maestra)
 
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
         if veh.objetivo_actual is None: 
             
-            # Chequea si el vehículo está en camino a su base (para evitar buscar recursos mientras regresa)
             # Solo busca si el cooldown terminó Y no está volviendo a base.
-            can_search = not hasattr(veh, 'search_cooldown') or veh.search_cooldown == 0
+            current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
+            can_search = current_cooldown == 0
             
+            cooldown_just_set = False # Bandera para evitar que vuelva a base inmediatamente si la búsqueda falla.
+
             if can_search:
                 
                 # --- LÓGICA DE BÚSQUEDA DE RECURSO ---
                 if veh.viajesActuales > 0:
                     recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
                     
-                    if not recurso_encontrado and hasattr(veh, 'search_cooldown'):
-                        # Si FALLA la búsqueda (no hay recursos o el camino está bloqueado)
-                        veh.search_cooldown = 30 # Esperar 30 ticks antes de volver a intentar
+                    if not recurso_encontrado: # Si FALLA la búsqueda (no hay recursos o el camino está bloqueado)
+                        # Establecer el cooldown y activar la bandera
+                        veh.search_cooldown = 30 
+                        cooldown_just_set = True
 
 
-                # --- LÓGICA DE VOLVER A BASE ---
-                # Si no encontró objetivo (o está en cooldown por fallo anterior) Y no está en base, debe volver a base.
-                if veh.objetivo_actual is None and not is_in_base: 
+                # --- LÓGICA DE VOLVER A BASE (CORREGIDA) ---
+                # Si no encontró objetivo Y no está en base, debe volver a base.
+                # Se añade 'and not cooldown_just_set' para que el vehículo se quede esperando el cooldown si la búsqueda falló.
+                if veh.objetivo_actual is None and not is_in_base and not cooldown_just_set: 
                     veh.volver_a_base(mmanager.grid_maestra)
                     
                     # Si 'volver_a_base' falló en encontrar camino
@@ -87,16 +106,15 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         # 4. Lógica de Colisión (solo si está activo)
         if veh.estado == "activo":
             
+            # Las colisiones de MINA ya se manejaron en el paso 2.
+            # Aquí manejamos colisiones con RECURSOS y VEHÍCULOS.
             collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and entity:
                 
-                if collision_type.startswith("mina"):
-                    mmanager._marcar_vehiculo(veh, valor=0) 
-                    veh.explotar()
-                    veh.camino = []
-
-                elif collision_type == "recurso":
+                # if collision_type.startswith("mina"): <-- ESTE CASO SE ELIMINA/IGNORA
+                
+                if collision_type == "recurso":
                     
                     compatible = (veh.carga == "todo" or 
                                   (veh.carga == "personas" and isinstance(entity, Persona)))
@@ -125,8 +143,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
 def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
     
-    current_history = mmanager.history
-    current_base_dir = mmanager.base_dir
+
     
     event_message = update_simulation(mmanager, flota_total)
     
