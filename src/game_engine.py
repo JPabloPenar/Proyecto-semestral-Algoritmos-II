@@ -1,95 +1,150 @@
-# game_engine.py
+# game_engine.py (OPTIMIZADO CON COOLDOWN Y COLISIÓN DE MINAS CORREGIDA)
 
 from map_manager import MapManager 
+from resources import Recurso, Persona 
+from vehicles import vehicle
 
-def update_simulation(engine: MapManager, flota_total: list) -> str:
-    """
-    Ejecuta un paso de la simulación (un "tick").
+BASE1_MAX_COL = 29
+BASE2_MIN_COL = 130
+BASE_MIN_ROW = 10
+BASE_MAX_ROW = 79
 
-    Args:
-        engine: La instancia actual de MapManager (el motor del juego/mapa).
-        flota_total: La lista de todos los vehículos en la simulación.
-
-    Returns:
-        Un mensaje de estado (str) indicando lo que sucedió.
-    """
+def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     
-    # Avanza la instancia de tiempo. Maneja la aparición/desaparición de Mina G1.
-    engine.update_time()
-    
-    # Mensajes para registro de eventos
-    event_log = []
+    mmanager.update_time()
+    #mmanager.guardar_estado_historial()
+
 
     for veh in flota_total:
-        """
-        Lógica de movimiento, actualización de objetivos y colisiones de vehículos.
-        """
+        
+        if veh.estado != "activo":
+            # Asegurarse de que el vehículo "inactivo" esté borrado de la grid
+            # Asumiendo que flota_total incluye todos los vehículos, activos o no.
+            # Esto solo se ejecutaría una vez al explotar.
+            if mmanager.grid_maestra[veh.fila][veh.columna] == veh:
+                mmanager._marcar_vehiculo(veh, valor=0) 
+            continue
+
+        # 1. Actualizar el cooldown de búsqueda
+        if hasattr(veh, 'search_cooldown') and veh.search_cooldown > 0:
+            veh.search_cooldown -= 1
+        
+        # 2. Movimiento (si hay camino)
         if veh.camino:
+
+            # Se limpia la celda ANTERIOR antes de mover
+            mmanager._marcar_vehiculo(veh, valor=0) 
             veh.mover_por_camino()
+            
+            # --- CORRECCIÓN DE COLISIÓN DE MINAS (Chequeo ANTES de marcar) ---
+            collision_type, entity = mmanager.check_vehicle_collisions(veh)
+            
+            if collision_type and collision_type.startswith("mina"):
+                # Si choca con una mina, explota ANTES de marcarse en la nueva posición.
+                # Esto garantiza que el vehículo nunca sobrescriba el '1' de la mina.
+                mmanager._marcar_vehiculo(veh, valor=0) 
+                veh.explotar()
+                veh.camino = []
+                continue # Pasa al siguiente vehículo
+            # -----------------------------------------------------------------
 
-        veh.actualizar_objetivo(engine.grid_maestra)
+            # Se marca la celda NUEVA después de mover (Solo si no explotó con mina)
+            mmanager._marcar_vehiculo(veh) 
 
+        # 3. Lógica de Objetivos
+
+        # A) ¿Está el vehículo en una base?
+        is_in_base = False
+        if veh.equipo == "Rojo" and BASE1_MAX_COL >= veh.columna >= 0 and BASE_MAX_ROW >= veh.fila >= BASE_MIN_ROW:
+            is_in_base = True
+        elif veh.equipo == "Azul" and BASE2_MIN_COL <= veh.columna <= MapManager.GRID_COLS_TOTALES - 1 and BASE_MAX_ROW >= veh.fila >= BASE_MIN_ROW:
+            is_in_base = True
+
+        # B) Si está en la base Y no tiene viajes pendientes: 
+        if is_in_base and veh.viajesActuales < veh.viajesTotales:
+            veh.viajesActuales = veh.viajesTotales 
+            veh.objetivo_actual = None
+
+        # C) Si no tiene objetivo actual O llegó a su objetivo
+        # NOTA: La lógica en vehicle.py ahora se asegura de que objetivo_actual=None 
+        # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
+        veh.actualizar_objetivo(mmanager.grid_maestra)
+
+        # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
+        if veh.objetivo_actual is None: 
+            
+            # Solo busca si el cooldown terminó Y no está volviendo a base.
+            current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
+            can_search = current_cooldown == 0
+            
+            cooldown_just_set = False # Bandera para evitar que vuelva a base inmediatamente si la búsqueda falla.
+
+            if can_search:
+                
+                # --- LÓGICA DE BÚSQUEDA DE RECURSO ---
+                if veh.viajesActuales > 0:
+                    recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
+                    
+                    if not recurso_encontrado: # Si FALLA la búsqueda (no hay recursos o el camino está bloqueado)
+                        # Establecer el cooldown y activar la bandera
+                        veh.search_cooldown = 30 
+                        cooldown_just_set = True
+
+
+                # --- LÓGICA DE VOLVER A BASE (CORREGIDA) ---
+                # Si no encontró objetivo Y no está en base, debe volver a base.
+                # Se añade 'and not cooldown_just_set' para que el vehículo se quede esperando el cooldown si la búsqueda falló.
+                if veh.objetivo_actual is None and not is_in_base and not cooldown_just_set: 
+                    veh.volver_a_base(mmanager.grid_maestra)
+                    
+                    # Si 'volver_a_base' falló en encontrar camino
+                    if not veh.camino and hasattr(veh, 'search_cooldown'): 
+                        veh.search_cooldown = 30 
+            # Si está en cooldown, no se ejecuta la búsqueda ni la vuelta a base.
+
+
+        # 4. Lógica de Colisión (solo si está activo)
         if veh.estado == "activo":
             
-            collision_type, entity = engine.check_vehicle_collisions(veh)
+            # Las colisiones de MINA ya se manejaron en el paso 2.
+            # Aquí manejamos colisiones con RECURSOS y VEHÍCULOS.
+            collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and entity:
                 
-                if collision_type.startswith("mina"):
-                    # El vehículo explota y se desactiva
-                    veh.explotar()
-                    veh.camino = [] # Detiene el movimiento
-                    event_log.append(f"¡Explosión! {veh.__class__.__name__} ({veh.equipo}) en T={engine.time_instance}")
-                    # TODO: consultar si quitar la mina. Por ahora la dejamos.
+                # if collision_type.startswith("mina"): <-- ESTE CASO SE ELIMINA/IGNORA
+                
+                if collision_type == "recurso":
+                    
+                    compatible = (veh.carga == "todo" or 
+                                  (veh.carga == "personas" and isinstance(entity, Persona)))
 
-                elif collision_type == "recurso":
-                    # El vehículo recoge el recurso si su capacidad se lo permite
-                    if veh.carga == entity.tipoDeCarga or veh.carga == "todo":
-                        # Solo recoge si tiene viajes disponibles
-                        if veh.viajesActuales > 0:
-                            veh.recoger() # Disminuye viajesActuales
-                            event_log.append(f"({veh.equipo}) recogió Recurso ({entity.__class__.__name__}) en ({veh.columna}, {veh.fila})")
-                            
-                            # Quitar el recurso de la grid y de la lista de entidades
-                            engine.grid_maestra[veh.fila][veh.columna] = 0 # Deja la celda libre
-                            engine.entities.remove(entity)
-                        else:
-                            event_log.append(f"{veh.__class__.__name__} ({veh.equipo}) no puede llevar más carga (Capacidad llena).")
+                    if compatible and veh.viajesActuales > 0:
+                        veh.viajesActuales -= 1
+                        mmanager.grid_maestra[veh.fila][veh.columna] = 0
+                        if entity in mmanager.entities:
+                            mmanager.entities.remove(entity)    
+                        
+                        veh.objetivo_actual = None
+                        veh.volver_a_base(mmanager.grid_maestra)
+
                 
                 elif collision_type == "vehiculo":
+                    mmanager._marcar_vehiculo(veh, valor=0)
                     veh.explotar()
-                    veh.camino = [] # Detiene el movimiento
+                    veh.camino = []
+                    mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar()
                     entity.camino = []
-                    event_log.append(f"Choque de {veh.__class__.__name__} y {entity.__class__.__name__}")
                                                         
 
-    if event_log:
-        return " | ".join(event_log)
-    else:
-        return "Simulación avanzada sin eventos mayores."
+    return
 
 
-def update_and_get_next_state(engine: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
-    """
-    Avanza la simulación un paso (para el botón '>>') y devuelve el nuevo estado.
+def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
     
-    Nota: La lógica de MapManager.update_time() ya guarda el estado en el historial.
-    """
 
-    # 1. Guarda la metadata de historial antes de decrementar (por seguridad en el replay)
-    current_history = engine.history
-    current_base_dir = engine.base_dir
     
-    # 2. Ejecuta el tick de la simulación y genera eventos
-    event_message = update_simulation(engine, flota_total)
+    event_message = update_simulation(mmanager, flota_total)
     
-    # El motor 'engine' ya se actualizó en update_simulation y MapManager.update_time()
-    
-    # 3. La parte de 'carga de nuevo estado' del código original se elimina
-    #    porque el 'engine' actual *es* el nuevo estado. Solo actualizamos las
-    #    referencias de los vehículos si es necesario (asumimos que la flota 
-    #    de 'visualization.py' ya está sincronizada por referencia).
-    
-    # Retornamos el motor actualizado, el mensaje de estado y el nuevo estado (STOPPED)
-    return engine, "STOPPED", event_message
+    return mmanager, "STOPPED", event_message
