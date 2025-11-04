@@ -1,5 +1,3 @@
-# visualization.py (MODIFICADO)
-
 import pygame
 import sys
 import os
@@ -14,8 +12,7 @@ from game_engine import update_simulation, update_and_get_next_state
 
 # --- Configuración y Constantes ---
 pygame.init()
-
-# ... (El resto de las constantes y configuración inicial, como colores y tamaños, se mantienen igual) ...
+CELL_SIZE = 5
 
 # Definición de Colores (RGB)
 BLANCO = (255, 255, 255)
@@ -52,7 +49,10 @@ reloj = pygame.time.Clock()
 SIMULATION_FPS = 60 # 60 ticks por segundo
 SIMULATION_STATE = "STOPPED" # STOPPED, INITIALIZED, PLAYING
 
-# ... (El resto de las definiciones de rectángulos, botones y fuentes se mantienen) ...
+# NUEVAS CONSTANTES PARA CONTROLAR LA VELOCIDAD DE LA LÓGICA
+GAME_TICK_RATE = 5 # Lógica del juego se ejecuta cada 10 frames (60 FPS / 10 = 6 ticks/segundo)
+# -------------------------------------------------------------
+
 ANCHO_BASE = 150
 ALTO_BASE = 350
 ANCHO_TERRENO = ANCHO_VENTANA - (2 * ANCHO_BASE)
@@ -99,41 +99,40 @@ fuente_boton = pygame.font.Font(None, 30)
 
 # --- Funciones de Dibujo (se mantienen igual) ---
 def draw_vehicle(surface, vehicle_type, color, x, y):
-    """Dibuja una representación de un vehículo."""
+    center_x = x + CELL_SIZE // 2 
+    center_y = y + CELL_SIZE // 2
     
-    VEHICLE_WIDTH = 20 
-    VEHICLE_HEIGHT = 12
-    WHEEL_RADIUS = 3
-    
-    if vehicle_type == "Jeep":
-        # Rectángulo (cuerpo)
-        pygame.draw.rect(surface, color, (x, y, VEHICLE_WIDTH, VEHICLE_HEIGHT), border_radius=3)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 5, y + VEHICLE_HEIGHT), WHEEL_RADIUS)
+    if vehicle_type == "Camion":
+        # Tamaño GRANDE (casi 2x2 celdas). Es el más grande.
+        CAMION_W = CELL_SIZE * 1.8 
+        CAMION_H = CELL_SIZE * 1.5 
+        
+        # Posición: esquina superior izquierda del dibujo, ajustada para centrar
+        draw_x = x - (CAMION_W - CELL_SIZE) / 2
+        draw_y = y - (CAMION_H - CELL_SIZE) / 2
+        
+        pygame.draw.rect(surface, color, (draw_x, draw_y, CAMION_W, CAMION_H), border_radius=3)
+        
+    elif vehicle_type == "Auto" or vehicle_type == "Jeep": 
+        # Tamaño MEDIANO (ocupa la mayor parte de 1x1 celda)
+        AUTO_SIZE = CELL_SIZE * 0.9 
+        
+        # Posición: esquina superior izquierda del dibujo, ajustada para centrar
+        draw_x = x + (CELL_SIZE - AUTO_SIZE) / 2
+        draw_y = y + (CELL_SIZE - AUTO_SIZE) / 2
+        
+        pygame.draw.rect(surface, color, (draw_x, draw_y, AUTO_SIZE, AUTO_SIZE), border_radius=2)
         
     elif vehicle_type == "Moto":
-        # Cuerpo delgado y ruedas más pequeñas
-        pygame.draw.line(surface, color, (x, y + 8), (x + VEHICLE_WIDTH - 5, y + 8), 4)
-        pygame.draw.circle(surface, NEGRO, (x + 4, y + 12), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 8, y + 12), WHEEL_RADIUS)
+        # Tamaño PEQUEÑO (ocupa menos de 1x1 celda). Es el más pequeño.
+        MOTO_RADIUS = CELL_SIZE * 0.3
         
-    elif vehicle_type == "Camion":
-        # Rectángulo más largo y alto (camión)
-        TRUCK_WIDTH = 30
-        TRUCK_HEIGHT = 15
-        pygame.draw.rect(surface, color, (x, y, TRUCK_WIDTH, TRUCK_HEIGHT), border_radius=4)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
-        pygame.draw.circle(surface, NEGRO, (x + TRUCK_WIDTH - 8, y + TRUCK_HEIGHT), WHEEL_RADIUS + 1)
+        # El dibujo se centra directamente en la celda.
+        pygame.draw.circle(surface, color, (center_x, center_y), MOTO_RADIUS)
         
-    elif vehicle_type == "Auto":
-        # Rectángulo más plano y bajo
-        CAR_HEIGHT = 15
-        pygame.draw.rect(surface, color, (x, y + 3, VEHICLE_WIDTH - 5, CAR_HEIGHT), border_radius=3)
-        # Ruedas
-        pygame.draw.circle(surface, NEGRO, (x + 5, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
-        pygame.draw.circle(surface, NEGRO, (x + VEHICLE_WIDTH - 10, y + CAR_HEIGHT + 3), WHEEL_RADIUS)
+    else:
+        # Dibujo por defecto
+        pygame.draw.circle(surface, color, (center_x, center_y), CELL_SIZE * 0.4)
 
 def inicializar_equipos(rect_base1, rect_base2):
     """Crea objetos de vehículo y les asigna posiciones de inicio distribuidas dentro de su base."""
@@ -182,15 +181,16 @@ def inicializar_equipos(rect_base1, rect_base2):
     return flota_1, flota_2
 
 # Inicializar las flotas con los vehículos creados
+#Esto se podria sacar si hacemos que haya que apretar init cuando se abre la ventana de la simulacion
 flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
 flota_total = flota_base1 + flota_base2
 
 
-def draw_entities(surface, engine):
+def draw_entities(surface, mmanager):
     """Dibuja las minas y recursos en el Terreno de Acción."""
     
     # --- Dibujo de Recursos ---
-    for entity in engine.entities:
+    for entity in mmanager.entities:
         if isinstance(entity, Recurso):
             # NOTA: Asumiendo que entity.columna/fila son coordenadas de la grid (x5 para pixel)
             x, y = entity.columna * 5, entity.fila * 5 
@@ -202,7 +202,7 @@ def draw_entities(surface, engine):
                 pygame.draw.rect(surface, color, (int(x) - 2.5, int(y) - 2.5, 5, 5))
 
     # 2. Dibujar Minas Estáticas
-    for entity in engine.entities:
+    for entity in mmanager.entities:
         if isinstance(entity, Mina) and not entity.movil:
             x, y = entity.columna * 5, entity.fila * 5
             radio = entity.radio # Radio de efecto (no de dibujo)
@@ -227,9 +227,9 @@ def draw_entities(surface, engine):
                 pygame.draw.circle(surface, NEGRO, (x, y), 5) 
 
     # 3. Dibujar Mina G1
-    if engine.mobile_mine and engine.mobile_mine_visible:
-        x, y = int(engine.mobile_mine.columna) * 5, int(engine.mobile_mine.fila) * 5
-        radio = engine.mobile_mine.radio
+    if mmanager.mobile_mine and mmanager.mobile_mine_visible:
+        x, y = int(mmanager.mobile_mine.columna) * 5, int(mmanager.mobile_mine.fila) * 5
+        radio = mmanager.mobile_mine.radio
         
         # Dibujar el radio de efecto
         pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio)*5, 2)
@@ -250,22 +250,24 @@ def draw_entities(surface, engine):
 ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
 
 # Intenta cargar el estado inicial. Si falla o no existe, devuelve None.
-engine = MapManager.cargar_estado(ENGINE_HISTORY_FILE)
+mmanager = MapManager.cargar_estado(ENGINE_HISTORY_FILE)
 
-# Si engine es None, significa que no se pudo cargar o no existía el archivo.
-if engine is None: 
-    engine = MapManager()
+# Si mmanager es None, significa que no se pudo cargar o no existía el archivo.
+if mmanager is None: 
+    mmanager = MapManager()
 
-engine.vehicles = flota_total
+mmanager.vehicles = flota_total
 
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
-    global SIMULATION_STATE, engine, flota_total
+    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2
     ejecutando = True
     
-
-    engine.distribute_entities() # Inicialización forzada de minas/recursos al inicio
-    engine.guardar_estado_historial()# Inicializacion del puntero
+    # Inicialice el contador de frames para controlar el tick de la lógica
+    frame_counter = 0 
+    
+    mmanager.distribute_entities() # Inicialización forzada de minas/recursos al inicio
+    mmanager.guardar_estado_historial() # Guardamos el estado inicial
 
     SIMULATION_STATE = "INITIALIZED"
     
@@ -283,9 +285,16 @@ def main_loop():
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
-                        engine.distribute_entities()
+                        # 1. Resetear y Reposicionar los vehículos
+                        flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
+                        flota_total = flota_base1 + flota_base2
+                        mmanager.vehicles = flota_total # Sincronizar con el MapManager
+                        
+                        # 2. Distribuir nuevas entidades y reiniciar historial
+                        mmanager.distribute_entities()
+                        mmanager.guardar_estado_historial()
                         SIMULATION_STATE = "INITIALIZED"
-                        print(f"[INITIALIZED] Nueva distribución generada.")
+                        print(f"[INITIALIZED] Nueva distribución generada y flota reposicionada.")
                     else:
                         print("La simulación debe estar detenida para reinicializar.")
                         
@@ -293,16 +302,21 @@ def main_loop():
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
-
-                        # for veh in flota_total:
-                        #     veh.agragarobjetivo(300,300)
-                        #     veh.calcular_camino
-                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {engine.time_instance}).")
+                        
+                        # **AGREGADO:** Inicializar la búsqueda de objetivos al presionar Play
+                        for veh in flota_total:
+                            # Forzar la búsqueda del recurso más cercano si no tiene un objetivo actual
+                            if veh.objetivo_actual is None and veh.viajesActuales > 0:
+                                veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
+                        # -------------------------------------------------------------
+                        
+                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {mmanager.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN STOP
                     if SIMULATION_STATE == "PLAYING":
                         SIMULATION_STATE = "STOPPED"
+
                         print(f"[STOPPED] Simulación Detenida.")
                     
                 # << (Retroceso en Replay)
@@ -313,34 +327,15 @@ def main_loop():
                         print("La simulación debe estar detenida para retroceder.")
                     
                     # Si no estamos jugando y hay eventos anteriores
-                    elif SIMULATION_STATE == "STOPPED" and engine.current_history_index > 0:
+                    elif SIMULATION_STATE == "STOPPED" or SIMULATION_STATE == "INITIALIZED":
 
-                        # 1. Guarda la metadata de historial antes de decrementar
-                        current_history = engine.history
-                        current_base_dir = engine.base_dir
-
-                        old_index = engine.current_history_index
-                        
-                        engine.current_history_index -= 1
-
-                        new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
-                        if new_engine:
-                            engine = new_engine # Reemplaza el motor por el estado anterior
-
-                            # 4. Restaura la metadata consistente (historial truncado)
-                            engine.history = current_history
-                            engine.base_dir = current_base_dir
-
-                            # Sobreescribe el índice del motor cargado con el índice correcto (decrementado)
-                            engine.current_history_index = old_index - 1
-                            # Sincronizar la flota con el motor cargado
-                            flota_total = engine.vehicles 
-
-                            print(f"[REPLAY] Retrocedido a Time Instance: {engine.time_instance}.")
-
+                        if mmanager.load_previous_state_from_history():
+                            # El objeto mmanager se ha modificado in-place
+                            flota_total = mmanager.vehicles # Sincronizar la flota
+                            print(f"[REPLAY] Retrocedido a Time Instance: {mmanager.time_instance}.")
 
                     # Si estamos al principio de la simulacion (no hay eventos anteriores)
-                    elif engine.current_history_index == 0:
+                    elif mmanager.current_history_index == 0:
                         print("Ya estás en el inicio de la simulación.")
 
                 # >> (Avance en Replay o Tick manual)
@@ -350,55 +345,51 @@ def main_loop():
                         print("La simulación debe estar detenida para avanzar en el replay.")
 
                     # ¿Hay un estado futuro grabado (en el historial) al que avanzar?
-                    elif engine.current_history_index < len(engine.history) - 1:
+                    elif mmanager.current_history_index < len(mmanager.history) - 1:
 
-                        # 1. Guarda la metadata de historial
-                        current_history = engine.history
-                        current_base_dir = engine.base_dir
-                        
-                        old_index = engine.current_history_index
+                        if mmanager.load_next_state_from_history():
+                            # El objeto mmanager se ha modificado in-place
+                            flota_total = mmanager.vehicles # Sincronizar la flota
 
-                        engine.current_history_index += 1
-                        # Carga el estado siguiente y reemplaza el objeto 'engine' actual
-                        new_engine = MapManager.cargar_estado(engine.history[engine.current_history_index])
-
-                        if new_engine:
-                            engine = new_engine
-
-                            # 4. Restaura la metadata consistente (historial, base_dir)
-                            engine.history = current_history
-                            engine.base_dir = current_base_dir
-                            
-                            # Sobreescribe el índice del motor cargado con el índice correcto (incrementado)
-                            engine.current_history_index = old_index + 1
-                            # Sincronizar la flota con el motor cargado
-                            flota_total = engine.vehicles
-                            
-                            print(f"[REPLAY] Avanzado a Time Instance: {engine.time_instance}.")
+                            print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
 
                             
                     # Si no hay estado futuro, avanza la simulación un paso (TICK manual)
                     else:
                         
                         # **LLAMA a la función segregada para avanzar un tick**
-                        engine, SIMULATION_STATE, event_message = update_and_get_next_state(engine, flota_total)
+                        mmanager, SIMULATION_STATE,_ = update_and_get_next_state(mmanager, flota_total)
                         
+                        mmanager.guardar_estado_historial()
                         # Sincronizar la flota con el motor actualizado
-                        flota_total = engine.vehicles 
+                        flota_total = mmanager.vehicles 
                         
-                        print(f"[TICK] Avanzado un paso (Time Instance: {engine.time_instance}). Mensaje: {event_message}")
-
+                        print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
 
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             
-            # **LLAMA a la función segregada para avanzar un tick**
-            event_message = update_simulation(engine, flota_total)
+            # --- NUEVA LÓGICA DE CONTROL DE TICK ---
+            frame_counter += 1
             
-            if event_message != "Simulación avanzada sin eventos mayores.":
-                print(f"[PLAYING] Evento: {event_message}")
-                                                                
+            # Solo ejecuta la simulación si se alcanza el ratio deseado
+            if frame_counter >= GAME_TICK_RATE:
+                
+                # **LLAMA a la función segregada para avanzar un tick**
+                update_simulation(mmanager, flota_total)
 
+                mmanager.guardar_estado_historial()
+                
+                # Reiniciar el contador para el siguiente tick
+                frame_counter = 0 
+            # --------------------------------------
+                                                                
+        
+        # --- Verificar condiciones de fin de simulación ---
+        if engine.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
+            SIMULATION_STATE = "STOPPED"
+            print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+        
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)
 
@@ -412,7 +403,7 @@ def main_loop():
 
         # Dibujar Títulos
         texto_base1 = fuente_titulo.render("Base 1", True, NEGRO)
-        texto_terreno = fuente_titulo.render("Terreno de Accion (Time: {})".format(engine.time_instance), True, NEGRO)
+        texto_terreno = fuente_titulo.render("Terreno de Accion (Time: {})".format(mmanager.time_instance), True, NEGRO)
         texto_base2 = fuente_titulo.render("Base 2", True, NEGRO)
 
         ventana.blit(texto_base1, (rect_base1.centerx - texto_base1.get_width() // 2, rect_base1.top - 20))
@@ -420,7 +411,7 @@ def main_loop():
         ventana.blit(texto_base2, (rect_base2.centerx - texto_base2.get_width() // 2, rect_base2.top - 20))
 
         # Dibujar Entidades (Recursos y Minas)
-        draw_entities(ventana, engine)
+        draw_entities(ventana, mmanager)
         
         for veh in flota_total:
             if veh.equipo == "Rojo":
@@ -443,6 +434,19 @@ def main_loop():
             texto_boton = fuente_boton.render(name, True, NEGRO)
             ventana.blit(texto_boton, (rect.centerx - texto_boton.get_width() // 2, rect.centery - texto_boton.get_height() // 2))
 
+        # --- Mostrar Puntajes en Pantalla ---
+        PUNTAJES_X_ROJO = rect_base1.left + 10
+        PUNTAJES_Y_ROJO = rect_base1.top - 40
+
+        PUNTAJES_X_AZUL = rect_base2.left + 10
+        PUNTAJES_Y_AZUL = rect_base2.top - 40
+        fuente_puntajes = pygame.font.Font(None, 24)
+
+        texto_rojo = fuente_puntajes.render(f"Rojo: {engine.puntajes['Rojo']} pts", True, COLOR_ROJO_EQUIPO)
+        ventana.blit(texto_rojo, (PUNTAJES_X_ROJO, PUNTAJES_Y_ROJO))
+
+        texto_azul = fuente_puntajes.render(f"Azul: {engine.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
+        ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
         # 4. Actualizar la Pantalla
         pygame.display.flip()
         reloj.tick(SIMULATION_FPS)

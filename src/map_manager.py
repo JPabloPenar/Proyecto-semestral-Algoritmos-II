@@ -40,40 +40,61 @@ class MapManager:
             print(f"Error al cargar el estado: {e}")
             return None
 
-    # Genera el nombre de archivo para un índice de historia específico.
-    def _get_history_filename(self, index):
 
-        # .makedirs crea la carpeta si no existe
-        os.makedirs(self.base_dir, exist_ok=True) # Asegura que la carpeta exista
-
-        """
-        .join une diferentes partes de la ruta de un archivo
-        En nuestro caso une: 
-        1. self.base_dir(nombre de la carpeta donde se almacenan todos los estados) 
-        2. f-string que crea el nombre del archivo (index:04 es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
-            I.E: state_0000.pickle
-        """
-        return os.path.join(self.base_dir, f"state_{index:04d}.pickle")
-
-    # Guarda el estado actual del MapManager como un nuevo paso en la historia.
     def guardar_estado_historial(self):
+        """Serializa el estado actual (atributos de juego) y lo añade a la lista self.history."""
         
-        #esto no hace nada
-        #while len(self.history) > self.current_history_index + 1:
-            # Eliminar el archivo si existe (para no llenar el disco)
-            #filename_to_delete = self.history.pop()
-            #if os.path.exists(filename_to_delete):
-                #os.remove(filename_to_delete)
+        # 1. Truncar la historia si se ha retrocedido y se generó un nuevo estado
+        if self.current_history_index < len(self.history) - 1:
+            self.history = self.history[:self.current_history_index + 1]
 
-        # Guardar el estado actual en el siguiente índice
-        self.current_history_index += 1
-        filename = self._get_history_filename(self.current_history_index)
+        # 2. Serializar el objeto actual (excluyendo el historial para evitar recursión y sobrecarga)
+        temp_history = self.history
+        temp_index = self.current_history_index
         
-        if self.guardar_estado(filename):
-            self.history.append(filename)
+        # Preparamos el objeto para la serialización (quitando los atributos de control)
+        self.history = []
+        self.current_history_index = -1
+        
+        # Serializa el estado (contiene grid, vehicles, entities, time_instance, etc.)
+        state_bytes = pickle.dumps(self) 
+        
+        # Restauramos los atributos de control (historial) en el objeto actual
+        self.history = temp_history
+        self.current_history_index = temp_index
+
+        # 3. Guardar el estado serializado y actualizar el índice
+        self.history.append(state_bytes)
+        self.current_history_index = len(self.history) - 1
+
+    def _load_state_from_bytes(self, state_bytes):
+        """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
+        loaded_state = pickle.loads(state_bytes)
+        
+        # Reemplazar los atributos (in-place, es más eficiente que deepcopy)
+        for attr, value in loaded_state.__dict__.items():
+            # Excluimos los atributos de control para que el historial se mantenga
+            if attr not in ('history', 'current_history_index', 'base_dir'): 
+                setattr(self, attr, value)
+
+    def load_previous_state_from_history(self):
+        """Decrementa el índice y deserializa el estado anterior si es posible."""
+        if self.current_history_index > 0:
+            self.current_history_index -= 1
+            state_bytes = self.history[self.current_history_index]
+            self._load_state_from_bytes(state_bytes) # Carga el estado in-place
             return True
-        
         return False
+    
+    def load_next_state_from_history(self):
+        """Incrementa el índice y deserializa el estado siguiente si es posible."""
+        if self.current_history_index < len(self.history) - 1:
+            self.current_history_index += 1
+            state_bytes = self.history[self.current_history_index]
+            self._load_state_from_bytes(state_bytes) # Carga el estado in-place
+            return True
+        return False
+
     
     # Borra todos los archivos .pickle de la carpeta de historial y reinicia el historial interno.
     def _limpiar_historial(self):
@@ -182,6 +203,10 @@ class MapManager:
         self.history = [] 
         self.current_history_index = -1
         self.base_dir = "map_history" # Carpeta para guardar los estados
+        
+        # Atributos para los puntajes de los equipos
+        self.puntajes = {'Rojo': 0, 'Azul': 0}
+        self.recursos_restantes = 0
 
 
     def _get_random_pos(self):
@@ -199,74 +224,66 @@ class MapManager:
 
         SAFETY_MARGIN_GRID = 1.5
 
-        for entity in self.entities:
+        # 1. Chequeo de RECURSOS (Solo verifica la celda: Si hay algo que no sea 0, ya está ocupado)
+        if isinstance(new_entity, Recurso):
+            celda_valor = self.grid_maestra[fila][col]
+            # Si la celda no es espacio libre (0), hay una colisión.
+            if celda_valor != 0: 
+                return True
             
-            # --- 1. Chequeo de colisión entre MINAS y MINAS ---
-            if isinstance(entity, Mina) and isinstance(new_entity, Mina):
+        # 2. Chequeo MINA MÓVIL con vehículos
+        if isinstance(new_entity, Mina) and new_entity.tipo == "G1":
 
-                SUMA_RADIOS = entity.radio + new_entity.radio
-                
-                
-                # Minas Circulares (O1, O2)
-                if entity.tipo in ["O1", "O2"]:
-                    # Distancia entre centros de celdas de grid (teorema de Pitágoras)
-                    distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                    # La distancia de separación debe ser mayor al radio de efecto en grid, más un margen
-                    if distance < SUMA_RADIOS + SAFETY_MARGIN_GRID: 
-                        return True
+            for veh in self.vehicles:
 
-                # Mina T1 (Horizontal)
-                elif entity.tipo == "T1":
-                    # Colisión si la nueva entidad cae dentro de la franja vertical de la mina
-                    if abs(entity.fila - fila) < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                        
-                # Mina T2 (Vertical) - Chequea distancia en X (columna)
-                elif entity.tipo == "T2":
-                    # Colisión si la nueva entidad cae dentro de la franja horizontal de la mina
-                    if abs(entity.columna - col) < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-            
-            # Chequeo de colisión entre MINAS y RECURSOS
-            elif isinstance(entity, Mina) and isinstance(new_entity, Recurso):
-                
-                # Minas Circulares (O1, O2)
-                if entity.tipo in ["O1", "O2"]:
-                    distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                    if distance < entity.radio + SAFETY_MARGIN_GRID: 
-                        return True
-                        
-                # Mina T1 (Horizontal)
-                elif entity.tipo == "T1":
-                    distance_y = abs(entity.fila - fila)
-                    if distance_y < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                        
-                # Mina T2 (Vertical)
-                elif entity.tipo == "T2":
-                    distance_x = abs(entity.columna - col)
-                    if distance_x < entity.radio + SAFETY_MARGIN_GRID:
-                        return True
-                    
-            # --- NUEVO CHEQUEO: MINA MÓVIL vs. RECURSO EXISTENTE ---
-            # Verifica si una nueva mina (Mina G1, que se reubica) colisiona con un Recurso existente
-            elif isinstance(entity, Recurso) and isinstance(new_entity, Mina):
-                # Usamos el radio de la nueva mina (G1) como área a evitar en torno al Recurso.
-                # Colisión circular (distancia del centro del recurso al centro de la mina)
-                distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                
-                # Colisión si la distancia es menor al radio de la mina G1 + margen
+                distance = math.sqrt((veh.columna - col)**2 + (veh.fila - fila)**2)
                 if distance < new_entity.radio + SAFETY_MARGIN_GRID: 
                     return True
-                                       
-            # --- 2. Chequeo de colisión entre RECURSOS (grid units) ---
-            if isinstance(new_entity, Recurso) and isinstance(entity, Recurso):
-                # Margen pequeño de 1 unidad de grid para evitar apilamiento
-                distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
-                if distance < 1: 
-                    return True
-                         
+            
+        # 3. Chequeo de MINAS (Estáticas o Móviles G1)
+        if isinstance(new_entity, Mina):
+        
+
+            for entity in self.entities:
+            
+                # --- 1. Chequeo de colisión entre MINAS y MINAS ---
+                if isinstance(entity, Mina):
+
+                    SUMA_RADIOS = entity.radio + new_entity.radio
+                
+                
+                    # Minas Circulares (O1, O2)
+                    if entity.tipo in ["O1", "O2"]:
+                        # Distancia entre centros de celdas de grid (teorema de Pitágoras)
+                        distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                        # La distancia de separación debe ser mayor al radio de efecto en grid, más un margen
+                        if distance < SUMA_RADIOS + SAFETY_MARGIN_GRID: 
+                            return True
+
+                    # Mina T1 (Horizontal)
+                    elif entity.tipo == "T1":
+                        # Colisión si la nueva entidad cae dentro de la franja vertical de la mina
+                        if abs(entity.fila - fila) < entity.radio + SAFETY_MARGIN_GRID:
+                            return True
+                        
+                    # Mina T2 (Vertical) - Chequea distancia en X (columna)
+                    elif entity.tipo == "T2":
+                        # Colisión si la nueva entidad cae dentro de la franja horizontal de la mina
+                        if abs(entity.columna - col) < entity.radio + SAFETY_MARGIN_GRID:
+                            return True
+            
+                # Chequeo de colisión entre MINAS y RECURSOS
+                elif isinstance(entity, Recurso):
+                
+                    # --- NUEVO CHEQUEO: MINA MÓVIL vs. RECURSO EXISTENTE ---
+                    # Verifica si una nueva mina (Mina G1, que se reubica) colisiona con un Recurso existente
+                    if new_entity.tipo == "G1":
+                        distance = math.sqrt((entity.columna - col)**2 + (entity.fila - fila)**2)
+                        if distance < new_entity.radio + SAFETY_MARGIN_GRID: 
+                            return True
+                                                
         return False
+
 
     def check_vehicle_collisions(self, veh):
 
@@ -279,10 +296,18 @@ class MapManager:
 
         if isinstance(entity_at_cell, Recurso):
             # Colisión con un Recurso
+            # Si todavía tiene espacio para recoger recursos entra.
+            if len(veh.recursos) < veh.viajesTotales:
+                veh.recursos.append(entity_at_cell) 
+                self.grid_maestra[fila][col] = 0  # elimina el recurso del mapa
+                self.entities.remove(entity_at_cell)
+                print(f"{veh.nombre} recogió un recurso ({entity_at_cell.tipo}).")
             return "recurso", entity_at_cell
 
-        elif isinstance(entity_at_cell, vehicle) and entity_at_cell is not veh: 
+        elif isinstance(entity_at_cell, vehicle): 
             # Colisión con otro Vehículo (asegura que no sea el mismo vehículo)
+            if entity_at_cell is veh:
+                return None, None
             return "vehiculo", entity_at_cell
         
         all_mines = [e for e in self.entities if isinstance(e, Mina) and not e.movil]
@@ -300,16 +325,98 @@ class MapManager:
                     return "mina_circular", entity
 
             elif entity.tipo == "T1": # Mina Horizontal (afecta por distancia en Y)
-                if dist_fila <= entity.radio:
+                if dist_col <= entity.radio and fila == entity.fila:
                     # Colisión con una mina horizontal
                     return "mina_horizontal", entity
 
             elif entity.tipo == "T2": # Mina Vertical (afecta por distancia en X)
-                if dist_col <= entity.radio:
+                if dist_fila <= entity.radio and col == entity.columna:
                     # Colisión con una mina vertical
                     return "mina_vertical", entity
+        elif entity_at_cell == 1:
+            return "mina", entity_at_cell
                     
+        
+        # Si el vehículo llega a la base exitosamente, entregará los recursos que agarró.
+        if veh.equipo == "Rojo" and self._en_base(veh, self.BASE1_GRID):
+            self._entregar_recursos(veh)
+        elif veh.equipo == "Azul" and self._en_base(veh, self.BASE2_GRID):
+            self._entregar_recursos(veh)
         return None, None
+    
+
+    # --- EN map_manager.py ---
+
+    def _marcar_vehiculo(self, veh, valor=None):
+        """Marca la posición del vehículo en la grid_maestra (2) o la borra (0)."""
+        fila, col = veh.fila, veh.columna
+
+        if 0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES:
+
+            celda_actual = self.grid_maestra[fila][col]
+
+            # Solo se borra si no estamos borrando un recurso o una mina.
+            # Si el valor es 0 (borrar), solo se borra si había un vehículo (2) o espacio libre (0).
+            if valor == 0:
+                if celda_actual is veh:
+                    #celda_actual = 0
+                    self.grid_maestra[fila][col] = 0
+            elif valor is None:
+                # Sobrescribe solo si hay espacio libre (0).
+                # Si hay un Recurso o Mina (1), el movimiento se detuvo antes (colisión).
+                if celda_actual == 0: 
+                    #celda_actual = veh
+                    self.grid_maestra[fila][col] = veh
+                # Si no es 0 (es un Recurso o Mina), la colisión se maneja en update_simulation.
+
+# Función que devuelve True si el vehículo está en su base.
+    def _en_base(self, vehiculo, base_zone):
+        return (base_zone["min_col"] <= vehiculo.columna <= base_zone["max_col"]and base_zone["min_row"] <= vehiculo.fila <= base_zone["max_row"])
+
+# Función que entrega todos los recursos recolectados y suma puntaje.
+    def _entregar_recursos(self, vehiculo):
+        if vehiculo.recursos:
+            cantidad = len(vehiculo.recursos)
+            puntos_ganados = sum(recurso.get_puntos() for recurso in vehiculo.recursos)  # obtiene el puntaje de cada recurso recolectado y los suma.
+            self.puntajes[vehiculo.equipo] += puntos_ganados
+            print(f"{vehiculo.nombre} entregó {cantidad} recursos (+{puntos_ganados} pts).")
+
+            # Vacia el inventario.
+            vehiculo.recursos.clear()
+
+# Función para verificar las condiciones de parada de la simulación.
+    def check_condiciones_parada(self):
+        #**
+        # Devuelve True cuando debe parar la simulación.
+        # Cuando no haya más recursos disponibles, se detiene la simulación.
+        # Cuando no hayan más vehículos en estado "activo" en un equipo, se detiene la simulación.
+        # #
+        
+        # Revisa si quedan recursos disponibles 
+        recursos_restantes = any(isinstance(e, Recurso) for e in self.entities)
+        
+        # Contar vehículos activos por equipo
+        vehiculos_activos = {
+            'Rojo': sum(1 for v in self.vehicles if v.equipo == "Rojo" and v.estado == "activo"),
+            'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado == "activo")
+        }
+        
+        # Condiciones de parada
+        if not recursos_restantes:
+            print("[FIN] No quedan más recursos.")
+            return True
+        
+        if vehiculos_activos['Rojo'] == 0:
+            print("[FIN] Todos los vehículos del equipo Rojo están explotados.")
+            return True
+        
+        if vehiculos_activos['Azul'] == 0:
+            print("[FIN] Todos los vehículos del equipo Azul están explotados.")
+            return True
+        
+        # Si ninguna condición se cumple, no se detiene la simulación.
+        return False
+
 
     def _relocate_mobile_mine(self):
             """
@@ -403,7 +510,6 @@ class MapManager:
         self._initial_placement_done = True
 
     
-    #esta funcion marca con unos el radio de explosion de las minas
 
     def _marcar_area_mina(self, mina: Mina, valor=1):
         fila_c, col_c = mina.fila, mina.columna
@@ -412,8 +518,6 @@ class MapManager:
         filas, cols = self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES
 
         #estas variables son para verificar que el radio no se vaya a salir del mapa, que daría index error
-        #si quisieramos poner ahï un uno, de todas formas eso no debería pasar porque se supone que las minas 
-        #spawnean bien, pero bueno... es, una lastima porque eso no anda bien
         max_fila = min(filas, fila_c + radio + 1)
         min_fila =  max(0, fila_c - radio)
 
@@ -428,19 +532,41 @@ class MapManager:
                     # Verifica si la celda (f, c) está dentro del radio
                     distance = math.sqrt((c - col_c)**2 + (f - fila_c)**2)
                     if distance <= radio:
-                        self.grid_maestra[f][c] = valor
+                        
+                        celda_actual = self.grid_maestra[f][c]
+
+                        # Solo modificamos la celda si estaba libre (0) o ya marcada como obstáculo (1).
+                        # Esto evita sobrescribir objetos Recurso.
+                        if valor == 1:
+                            if celda_actual == 0: 
+                                self.grid_maestra[f][c] = valor
+                        elif valor == 0:
+                            if celda_actual == 1: 
+                                self.grid_maestra[f][c] = valor
         
         # Mina Lineal Horizontal (T1)
         elif mina.tipo == "T1":
             
             for c in range(min_col, max_col + 1): 
-                self.grid_maestra[mina.fila][c] = valor
+                celda_actual = self.grid_maestra[mina.fila][c]
+                if valor == 1:
+                    if celda_actual == 0:
+                        self.grid_maestra[mina.fila][c] = valor
+                elif valor == 0:
+                    if celda_actual == 1:
+                        self.grid_maestra[mina.fila][c] = valor
 
         # Mina Lineal Vertical (T2)
         elif mina.tipo == "T2":
 
             for f in range(min_fila, max_fila + 1): 
-                self.grid_maestra[f][mina.columna] = valor
+                celda_actual = self.grid_maestra[f][mina.columna]
+                if valor == 1:
+                    if celda_actual == 0:
+                        self.grid_maestra[f][mina.columna] = valor
+                elif valor == 0:
+                    if celda_actual == 1:
+                        self.grid_maestra[f][mina.columna] = valor
 
 
     def _actualizar_grid_minas(self):
@@ -474,7 +600,7 @@ class MapManager:
 
 
 
-    RELOCATION_TICK = 100
+    RELOCATION_TICK = 35
     def update_time(self):
         self.time_instance += 1
         
@@ -502,6 +628,6 @@ class MapManager:
             self.is_relocating = True   # Prepara la reubicación para el siguiente tick
 
         # Guardamos el estado de juego despues de la logica del tick
-        self.guardar_estado_historial()
+        #self.guardar_estado_historial()
         
         return self.time_instance
