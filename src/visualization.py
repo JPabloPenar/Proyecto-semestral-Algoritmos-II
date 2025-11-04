@@ -366,7 +366,6 @@ def main_loop():
                         
                         print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
 
-
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             
@@ -385,7 +384,12 @@ def main_loop():
                 frame_counter = 0 
             # --------------------------------------
                                                                 
-
+        
+        # --- Verificar condiciones de fin de simulación ---
+        if engine.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
+            SIMULATION_STATE = "STOPPED"
+            print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+        
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)
 
@@ -430,6 +434,19 @@ def main_loop():
             texto_boton = fuente_boton.render(name, True, NEGRO)
             ventana.blit(texto_boton, (rect.centerx - texto_boton.get_width() // 2, rect.centery - texto_boton.get_height() // 2))
 
+        # --- Mostrar Puntajes en Pantalla ---
+        PUNTAJES_X_ROJO = rect_base1.left + 10
+        PUNTAJES_Y_ROJO = rect_base1.top - 40
+
+        PUNTAJES_X_AZUL = rect_base2.left + 10
+        PUNTAJES_Y_AZUL = rect_base2.top - 40
+        fuente_puntajes = pygame.font.Font(None, 24)
+
+        texto_rojo = fuente_puntajes.render(f"Rojo: {engine.puntajes['Rojo']} pts", True, COLOR_ROJO_EQUIPO)
+        ventana.blit(texto_rojo, (PUNTAJES_X_ROJO, PUNTAJES_Y_ROJO))
+
+        texto_azul = fuente_puntajes.render(f"Azul: {engine.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
+        ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
         # 4. Actualizar la Pantalla
         pygame.display.flip()
         reloj.tick(SIMULATION_FPS)

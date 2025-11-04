@@ -203,6 +203,10 @@ class MapManager:
         self.history = [] 
         self.current_history_index = -1
         self.base_dir = "map_history" # Carpeta para guardar los estados
+        
+        # Atributos para los puntajes de los equipos
+        self.puntajes = {'Rojo': 0, 'Azul': 0}
+        self.recursos_restantes = 0
 
 
     def _get_random_pos(self):
@@ -292,6 +296,12 @@ class MapManager:
 
         if isinstance(entity_at_cell, Recurso):
             # Colisión con un Recurso
+            # Si todavía tiene espacio para recoger recursos entra.
+            if len(veh.recursos) < veh.viajesTotales:
+                veh.recursos.append(entity_at_cell) 
+                self.grid_maestra[fila][col] = 0  # elimina el recurso del mapa
+                self.entities.remove(entity_at_cell)
+                print(f"{veh.nombre} recogió un recurso ({entity_at_cell.tipo}).")
             return "recurso", entity_at_cell
 
         elif isinstance(entity_at_cell, vehicle): 
@@ -300,9 +310,38 @@ class MapManager:
                 return None, None
             return "vehiculo", entity_at_cell
         
+        all_mines = [e for e in self.entities if isinstance(e, Mina) and not e.movil]
+        if self.mobile_mine_visible:
+            all_mines.append(self.mobile_mine)
+            
+        for entity in all_mines:
+            dist_col = abs(entity.columna - col)
+            dist_fila = abs(entity.fila - fila)
+            distance = math.sqrt(dist_col**2 + dist_fila**2)
+
+            if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
+                if distance <= entity.radio:
+                    # Colisión con una mina circular
+                    return "mina_circular", entity
+
+            elif entity.tipo == "T1": # Mina Horizontal (afecta por distancia en Y)
+                if dist_col <= entity.radio and fila == entity.fila:
+                    # Colisión con una mina horizontal
+                    return "mina_horizontal", entity
+
+            elif entity.tipo == "T2": # Mina Vertical (afecta por distancia en X)
+                if dist_fila <= entity.radio and col == entity.columna:
+                    # Colisión con una mina vertical
+                    return "mina_vertical", entity
         elif entity_at_cell == 1:
             return "mina", entity_at_cell
                     
+        
+        # Si el vehículo llega a la base exitosamente, entregará los recursos que agarró.
+        if veh.equipo == "Rojo" and self._en_base(veh, self.BASE1_GRID):
+            self._entregar_recursos(veh)
+        elif veh.equipo == "Azul" and self._en_base(veh, self.BASE2_GRID):
+            self._entregar_recursos(veh)
         return None, None
     
 
@@ -329,6 +368,55 @@ class MapManager:
                     #celda_actual = veh
                     self.grid_maestra[fila][col] = veh
                 # Si no es 0 (es un Recurso o Mina), la colisión se maneja en update_simulation.
+
+# Función que devuelve True si el vehículo está en su base.
+    def _en_base(self, vehiculo, base_zone):
+        return (base_zone["min_col"] <= vehiculo.columna <= base_zone["max_col"]and base_zone["min_row"] <= vehiculo.fila <= base_zone["max_row"])
+
+# Función que entrega todos los recursos recolectados y suma puntaje.
+    def _entregar_recursos(self, vehiculo):
+        if vehiculo.recursos:
+            cantidad = len(vehiculo.recursos)
+            puntos_ganados = sum(recurso.get_puntos() for recurso in vehiculo.recursos)  # obtiene el puntaje de cada recurso recolectado y los suma.
+            self.puntajes[vehiculo.equipo] += puntos_ganados
+            print(f"{vehiculo.nombre} entregó {cantidad} recursos (+{puntos_ganados} pts).")
+
+            # Vacia el inventario.
+            vehiculo.recursos.clear()
+
+# Función para verificar las condiciones de parada de la simulación.
+    def check_condiciones_parada(self):
+        #**
+        # Devuelve True cuando debe parar la simulación.
+        # Cuando no haya más recursos disponibles, se detiene la simulación.
+        # Cuando no hayan más vehículos en estado "activo" en un equipo, se detiene la simulación.
+        # #
+        
+        # Revisa si quedan recursos disponibles 
+        recursos_restantes = any(isinstance(e, Recurso) for e in self.entities)
+        
+        # Contar vehículos activos por equipo
+        vehiculos_activos = {
+            'Rojo': sum(1 for v in self.vehicles if v.equipo == "Rojo" and v.estado == "activo"),
+            'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado == "activo")
+        }
+        
+        # Condiciones de parada
+        if not recursos_restantes:
+            print("[FIN] No quedan más recursos.")
+            return True
+        
+        if vehiculos_activos['Rojo'] == 0:
+            print("[FIN] Todos los vehículos del equipo Rojo están explotados.")
+            return True
+        
+        if vehiculos_activos['Azul'] == 0:
+            print("[FIN] Todos los vehículos del equipo Azul están explotados.")
+            return True
+        
+        # Si ninguna condición se cumple, no se detiene la simulación.
+        return False
+
 
     def _relocate_mobile_mine(self):
             """
