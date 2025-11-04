@@ -1,8 +1,7 @@
 # game_engine.py (OPTIMIZADO CON COOLDOWN Y COLISIÓN DE MINAS CORREGIDA)
 
 from map_manager import MapManager 
-from resources import Recurso, Persona 
-from vehicles import vehicle
+from resources import Persona 
 
 BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130
@@ -12,8 +11,6 @@ BASE_MAX_ROW = 79
 def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     
     mmanager.update_time()
-    #mmanager.guardar_estado_historial()
-
 
     for veh in flota_total:
         
@@ -50,6 +47,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
             # Se marca la celda NUEVA después de mover (Solo si no explotó con mina)
             mmanager._marcar_vehiculo(veh) 
+        
 
         # 3. Lógica de Objetivos
 
@@ -59,6 +57,10 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             is_in_base = True
         elif veh.equipo == "Azul" and BASE2_MIN_COL <= veh.columna <= MapManager.GRID_COLS_TOTALES - 1 and BASE_MAX_ROW >= veh.fila >= BASE_MIN_ROW:
             is_in_base = True
+
+        if is_in_base and veh.recursos:
+            mmanager._entregar_recursos(veh)
+
 
         # B) Si está en la base Y no tiene viajes pendientes: 
         if is_in_base and veh.viajesActuales < veh.viajesTotales:
@@ -120,6 +122,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                                   (veh.carga == "personas" and isinstance(entity, Persona)))
 
                     if compatible and veh.viajesActuales > 0:
+                        veh.recursos.append(entity)
+                        
                         veh.viajesActuales -= 1
                         mmanager.grid_maestra[veh.fila][veh.columna] = 0
                         if entity in mmanager.entities:

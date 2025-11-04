@@ -284,11 +284,25 @@ class MapManager:
                                                 
         return False
 
+    # Función que devuelve True si el vehículo está en su base.
+    def _en_base(self, vehiculo, base_zone):
+        return (base_zone["min_col"] <= vehiculo.columna <= base_zone["max_col"]and base_zone["min_row"] <= vehiculo.fila <= base_zone["max_row"])
+
+    # Función que entrega todos los recursos recolectados y suma puntaje.
+    def _entregar_recursos(self, vehiculo):
+        cantidad = len(vehiculo.recursos)
+        puntos_ganados = 0
+        for i in range(cantidad):
+            puntos_ganados += vehiculo.recursos[i].get_puntos()
+        self.puntajes[vehiculo.equipo] += puntos_ganados
+
+        # Vacia el inventario.
+        vehiculo.recursos.clear()
 
     def check_vehicle_collisions(self, veh):
 
         fila, col = veh.fila, veh.columna
-        
+
         if not (0 <= fila < self.GRID_FILAS_TOTALES and 0 <= col < self.GRID_COLS_TOTALES):
             return None, None # Fuera de límites
 
@@ -296,12 +310,6 @@ class MapManager:
 
         if isinstance(entity_at_cell, Recurso):
             # Colisión con un Recurso
-            # Si todavía tiene espacio para recoger recursos entra.
-            if len(veh.recursos) < veh.viajesTotales:
-                veh.recursos.append(entity_at_cell) 
-                self.grid_maestra[fila][col] = 0  # elimina el recurso del mapa
-                self.entities.remove(entity_at_cell)
-                print(f"{veh.nombre} recogió un recurso ({entity_at_cell.tipo}).")
             return "recurso", entity_at_cell
 
         elif isinstance(entity_at_cell, vehicle): 
@@ -309,16 +317,10 @@ class MapManager:
             if entity_at_cell is veh:
                 return None, None
             return "vehiculo", entity_at_cell
-                
+
         elif entity_at_cell == 1:
             return "mina", entity_at_cell
-                    
-        
-        # Si el vehículo llega a la base exitosamente, entregará los recursos que agarró.
-        if veh.equipo == "Rojo" and self._en_base(veh, self.BASE1_GRID):
-            self._entregar_recursos(veh)
-        elif veh.equipo == "Azul" and self._en_base(veh, self.BASE2_GRID):
-            self._entregar_recursos(veh)
+
         return None, None
     
 
@@ -346,20 +348,7 @@ class MapManager:
                     self.grid_maestra[fila][col] = veh
                 # Si no es 0 (es un Recurso o Mina), la colisión se maneja en update_simulation.
 
-# Función que devuelve True si el vehículo está en su base.
-    def _en_base(self, vehiculo, base_zone):
-        return (base_zone["min_col"] <= vehiculo.columna <= base_zone["max_col"]and base_zone["min_row"] <= vehiculo.fila <= base_zone["max_row"])
 
-# Función que entrega todos los recursos recolectados y suma puntaje.
-    def _entregar_recursos(self, vehiculo):
-        if vehiculo.recursos:
-            cantidad = len(vehiculo.recursos)
-            puntos_ganados = sum(recurso.get_puntos() for recurso in vehiculo.recursos)  # obtiene el puntaje de cada recurso recolectado y los suma.
-            self.puntajes[vehiculo.equipo] += puntos_ganados
-            print(f"{vehiculo.nombre} entregó {cantidad} recursos (+{puntos_ganados} pts).")
-
-            # Vacia el inventario.
-            vehiculo.recursos.clear()
 
 # Función para verificar las condiciones de parada de la simulación.
     def check_condiciones_parada(self):
@@ -396,29 +385,29 @@ class MapManager:
 
 
     def _relocate_mobile_mine(self):
-            """
-            Reubica la Mina G1 de forma segura (sin colisionar con entidades estáticas).
-            Esta función se llama cuando la mina está invisible (transición instantánea).
-            """
+        """
+        Reubica la Mina G1 de forma segura (sin colisionar con entidades estáticas).
+        Esta función se llama cuando la mina está invisible (transición instantánea).
+        """
 
-            placed = False
-            attempts = 0
-            new_mine = self.mobile_mine
+        placed = False
+        attempts = 0
+        new_mine = self.mobile_mine
+        
+        while not placed and attempts < 1000000:
+            col, fila = self._get_random_pos()
             
-            while not placed and attempts < 1000000:
-                col, fila = self._get_random_pos()
-                
-                # Chequeamos colisión contra todas las entidades estáticas
-                if not self._check_collision(col, fila, new_mine): 
-                    self.mobile_mine.set_posicion(col, fila)
-                    placed = True
+            # Chequeamos colisión contra todas las entidades estáticas
+            if not self._check_collision(col, fila, new_mine): 
+                self.mobile_mine.set_posicion(col, fila)
+                placed = True
 
-                attempts += 1
-            
-            if not placed:
-                #col, fila = self._get_random_pos()
-                #self.mobile_mine.set_posicion(col, fila)
-                print ("error mina movil")
+            attempts += 1
+        
+        if not placed:
+            #col, fila = self._get_random_pos()
+            #self.mobile_mine.set_posicion(col, fila)
+            print ("error mina movil")
 
 
     def distribute_entities(self):
@@ -580,6 +569,7 @@ class MapManager:
     RELOCATION_TICK = 35
     def update_time(self):
         self.time_instance += 1
+        
         
         if self.is_relocating:
             # Pasa 1 tick invisible (instantáneo)

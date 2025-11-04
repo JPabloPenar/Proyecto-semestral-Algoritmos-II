@@ -343,6 +343,9 @@ def main_loop():
 
                     if SIMULATION_STATE == "PLAYING":
                         print("La simulación debe estar detenida para avanzar en el replay.")
+                    
+                    if SIMULATION_STATE == "TERMINADO":
+                        print("Final de la ejecucion")
 
                     # ¿Hay un estado futuro grabado (en el historial) al que avanzar?
                     elif mmanager.current_history_index < len(mmanager.history) - 1:
@@ -386,9 +389,10 @@ def main_loop():
                                                                 
         
         # --- Verificar condiciones de fin de simulación ---
-        if engine.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
-            SIMULATION_STATE = "STOPPED"
+        if mmanager.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
+            SIMULATION_STATE = "TERMINADO"
             print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+            
         
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)
@@ -442,10 +446,10 @@ def main_loop():
         PUNTAJES_Y_AZUL = rect_base2.top - 40
         fuente_puntajes = pygame.font.Font(None, 24)
 
-        texto_rojo = fuente_puntajes.render(f"Rojo: {engine.puntajes['Rojo']} pts", True, COLOR_ROJO_EQUIPO)
+        texto_rojo = fuente_puntajes.render(f"Rojo: {mmanager.puntajes['Rojo']} pts", True, COLOR_ROJO_EQUIPO)
         ventana.blit(texto_rojo, (PUNTAJES_X_ROJO, PUNTAJES_Y_ROJO))
 
-        texto_azul = fuente_puntajes.render(f"Azul: {engine.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
+        texto_azul = fuente_puntajes.render(f"Azul: {mmanager.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
         ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
         # 4. Actualizar la Pantalla
         pygame.display.flip()
