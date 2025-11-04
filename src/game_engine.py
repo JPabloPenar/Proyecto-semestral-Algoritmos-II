@@ -12,7 +12,7 @@ BASE_MAX_ROW = 79
 def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     
     mmanager.update_time()
-    mmanager.guardar_estado_historial()
+    #mmanager.guardar_estado_historial()
 
 
     for veh in flota_total:

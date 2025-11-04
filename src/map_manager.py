@@ -40,40 +40,61 @@ class MapManager:
             print(f"Error al cargar el estado: {e}")
             return None
 
-    # Genera el nombre de archivo para un índice de historia específico.
-    def _get_history_filename(self, index):
 
-        # .makedirs crea la carpeta si no existe
-        os.makedirs(self.base_dir, exist_ok=True) # Asegura que la carpeta exista
-
-        """
-        .join une diferentes partes de la ruta de un archivo
-        En nuestro caso une: 
-        1. self.base_dir(nombre de la carpeta donde se almacenan todos los estados) 
-        2. f-string que crea el nombre del archivo (index:04d es un numero entero que debe ser rellenado hasta llegar a 4 digitos)
-            I.E: state_0000.pickle
-        """
-        return os.path.join(self.base_dir, f"state_{index:04d}.pickle")
-
-    # Guarda el estado actual del MapManager como un nuevo paso en la historia.
     def guardar_estado_historial(self):
+        """Serializa el estado actual (atributos de juego) y lo añade a la lista self.history."""
         
-        #esto no hace nada
-        #while len(self.history) > self.current_history_index + 1:
-            # Eliminar el archivo si existe (para no llenar el disco)
-            #filename_to_delete = self.history.pop()
-            #if os.path.exists(filename_to_delete):
-                #os.remove(filename_to_delete)
+        # 1. Truncar la historia si se ha retrocedido y se generó un nuevo estado
+        if self.current_history_index < len(self.history) - 1:
+            self.history = self.history[:self.current_history_index + 1]
 
-        # Guardar el estado actual en el siguiente índice
-        self.current_history_index += 1
-        filename = self._get_history_filename(self.current_history_index)
+        # 2. Serializar el objeto actual (excluyendo el historial para evitar recursión y sobrecarga)
+        temp_history = self.history
+        temp_index = self.current_history_index
         
-        if self.guardar_estado(filename):
-            self.history.append(filename)
+        # Preparamos el objeto para la serialización (quitando los atributos de control)
+        self.history = []
+        self.current_history_index = -1
+        
+        # Serializa el estado (contiene grid, vehicles, entities, time_instance, etc.)
+        state_bytes = pickle.dumps(self) 
+        
+        # Restauramos los atributos de control (historial) en el objeto actual
+        self.history = temp_history
+        self.current_history_index = temp_index
+
+        # 3. Guardar el estado serializado y actualizar el índice
+        self.history.append(state_bytes)
+        self.current_history_index = len(self.history) - 1
+
+    def _load_state_from_bytes(self, state_bytes):
+        """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
+        loaded_state = pickle.loads(state_bytes)
+        
+        # Reemplazar los atributos (in-place, es más eficiente que deepcopy)
+        for attr, value in loaded_state.__dict__.items():
+            # Excluimos los atributos de control para que el historial se mantenga
+            if attr not in ('history', 'current_history_index', 'base_dir'): 
+                setattr(self, attr, value)
+
+    def load_previous_state_from_history(self):
+        """Decrementa el índice y deserializa el estado anterior si es posible."""
+        if self.current_history_index > 0:
+            self.current_history_index -= 1
+            state_bytes = self.history[self.current_history_index]
+            self._load_state_from_bytes(state_bytes) # Carga el estado in-place
             return True
-        
         return False
+    
+    def load_next_state_from_history(self):
+        """Incrementa el índice y deserializa el estado siguiente si es posible."""
+        if self.current_history_index < len(self.history) - 1:
+            self.current_history_index += 1
+            state_bytes = self.history[self.current_history_index]
+            self._load_state_from_bytes(state_bytes) # Carga el estado in-place
+            return True
+        return False
+
     
     # Borra todos los archivos .pickle de la carpeta de historial y reinicia el historial interno.
     def _limpiar_historial(self):

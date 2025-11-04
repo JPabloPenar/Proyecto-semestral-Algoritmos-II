@@ -267,7 +267,7 @@ def main_loop():
     frame_counter = 0 
     
     mmanager.distribute_entities() # Inicialización forzada de minas/recursos al inicio
-    mmanager.guardar_estado_historial()# Inicializacion del puntero
+    mmanager.guardar_estado_historial() # Guardamos el estado inicial
 
     SIMULATION_STATE = "INITIALIZED"
     
@@ -292,6 +292,7 @@ def main_loop():
                         
                         # 2. Distribuir nuevas entidades y reiniciar historial
                         mmanager.distribute_entities()
+                        mmanager.guardar_estado_historial()
                         SIMULATION_STATE = "INITIALIZED"
                         print(f"[INITIALIZED] Nueva distribución generada y flota reposicionada.")
                     else:
@@ -315,6 +316,7 @@ def main_loop():
                     # BOTÓN STOP
                     if SIMULATION_STATE == "PLAYING":
                         SIMULATION_STATE = "STOPPED"
+
                         print(f"[STOPPED] Simulación Detenida.")
                     
                 # << (Retroceso en Replay)
@@ -325,31 +327,12 @@ def main_loop():
                         print("La simulación debe estar detenida para retroceder.")
                     
                     # Si no estamos jugando y hay eventos anteriores
-                    elif SIMULATION_STATE == "STOPPED" and mmanager.current_history_index > 0:
+                    elif SIMULATION_STATE == "STOPPED" or SIMULATION_STATE == "INITIALIZED":
 
-                        # 1. Guarda la metadata de historial antes de decrementar
-                        current_history = mmanager.history
-                        current_base_dir = mmanager.base_dir
-
-                        old_index = mmanager.current_history_index
-                        
-                        mmanager.current_history_index -= 1
-
-                        new_mmanager = MapManager.cargar_estado(mmanager.history[mmanager.current_history_index])
-                        if new_mmanager:
-                            mmanager = new_mmanager # Reemplaza el motor por el estado anterior
-
-                            # 4. Restaura la metadata consistente (historial truncado)
-                            mmanager.history = current_history
-                            mmanager.base_dir = current_base_dir
-
-                            # Sobreescribe el índice del motor cargado con el índice correcto (decrementado)
-                            mmanager.current_history_index = old_index - 1
-                            # Sincronizar la flota con el motor cargado
-                            flota_total = mmanager.vehicles 
-
+                        if mmanager.load_previous_state_from_history():
+                            # El objeto mmanager se ha modificado in-place
+                            flota_total = mmanager.vehicles # Sincronizar la flota
                             print(f"[REPLAY] Retrocedido a Time Instance: {mmanager.time_instance}.")
-
 
                     # Si estamos al principio de la simulacion (no hay eventos anteriores)
                     elif mmanager.current_history_index == 0:
@@ -364,28 +347,10 @@ def main_loop():
                     # ¿Hay un estado futuro grabado (en el historial) al que avanzar?
                     elif mmanager.current_history_index < len(mmanager.history) - 1:
 
-                        # 1. Guarda la metadata de historial
-                        current_history = mmanager.history
-                        current_base_dir = mmanager.base_dir
-                        
-                        old_index = mmanager.current_history_index
+                        if mmanager.load_next_state_from_history():
+                            # El objeto mmanager se ha modificado in-place
+                            flota_total = mmanager.vehicles # Sincronizar la flota
 
-                        mmanager.current_history_index += 1
-                        # Carga el estado siguiente y reemplaza el objeto 'mmanager' actual
-                        new_mmanager = MapManager.cargar_estado(mmanager.history[mmanager.current_history_index])
-
-                        if new_mmanager:
-                            mmanager = new_mmanager
-
-                            # 4. Restaura la metadata consistente (historial, base_dir)
-                            mmanager.history = current_history
-                            mmanager.base_dir = current_base_dir
-                            
-                            # Sobreescribe el índice del motor cargado con el índice correcto (incrementado)
-                            mmanager.current_history_index = old_index + 1
-                            # Sincronizar la flota con el motor cargado
-                            flota_total = mmanager.vehicles
-                            
                             print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
 
                             
@@ -393,12 +358,13 @@ def main_loop():
                     else:
                         
                         # **LLAMA a la función segregada para avanzar un tick**
-                        mmanager, SIMULATION_STATE, event_message = update_and_get_next_state(mmanager, flota_total)
+                        mmanager, SIMULATION_STATE,_ = update_and_get_next_state(mmanager, flota_total)
                         
+                        mmanager.guardar_estado_historial()
                         # Sincronizar la flota con el motor actualizado
                         flota_total = mmanager.vehicles 
                         
-                        print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}). Mensaje: {event_message}")
+                        print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
 
 
         # 2. Lógica de Actualización (Tick del juego)
@@ -412,6 +378,8 @@ def main_loop():
                 
                 # **LLAMA a la función segregada para avanzar un tick**
                 update_simulation(mmanager, flota_total)
+
+                mmanager.guardar_estado_historial()
                 
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
