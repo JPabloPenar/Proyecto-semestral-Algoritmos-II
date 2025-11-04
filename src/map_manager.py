@@ -309,30 +309,7 @@ class MapManager:
             if entity_at_cell is veh:
                 return None, None
             return "vehiculo", entity_at_cell
-        
-        all_mines = [e for e in self.entities if isinstance(e, Mina) and not e.movil]
-        if self.mobile_mine_visible:
-            all_mines.append(self.mobile_mine)
-            
-        for entity in all_mines:
-            dist_col = abs(entity.columna - col)
-            dist_fila = abs(entity.fila - fila)
-            distance = math.sqrt(dist_col**2 + dist_fila**2)
-
-            if entity.tipo in ["O1", "O2", "G1"]: # Minas Circulares
-                if distance <= entity.radio:
-                    # Colisión con una mina circular
-                    return "mina_circular", entity
-
-            elif entity.tipo == "T1": # Mina Horizontal (afecta por distancia en Y)
-                if dist_col <= entity.radio and fila == entity.fila:
-                    # Colisión con una mina horizontal
-                    return "mina_horizontal", entity
-
-            elif entity.tipo == "T2": # Mina Vertical (afecta por distancia en X)
-                if dist_fila <= entity.radio and col == entity.columna:
-                    # Colisión con una mina vertical
-                    return "mina_vertical", entity
+                
         elif entity_at_cell == 1:
             return "mina", entity_at_cell
                     
