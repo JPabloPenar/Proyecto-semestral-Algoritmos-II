@@ -327,7 +327,7 @@ def main_loop():
                         print("La simulación debe estar detenida para retroceder.")
                     
                     # Si no estamos jugando y hay eventos anteriores
-                    elif SIMULATION_STATE == "STOPPED" or SIMULATION_STATE == "INITIALIZED":
+                    elif SIMULATION_STATE == "STOPPED" or SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "TERMINADO":
 
                         if mmanager.load_previous_state_from_history():
                             # El objeto mmanager se ha modificado in-place
