@@ -4,6 +4,7 @@ class Recurso:
         self.puntos = puntos
         self.columna = columna
         self.fila = fila
+        self.buscado= None
 
     def get_puntos(self) -> int:
         return self.puntos

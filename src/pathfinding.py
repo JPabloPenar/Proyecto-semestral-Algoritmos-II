@@ -88,7 +88,7 @@ def a_star(grid, start, goal):
 
 # Mantenemos bfs_multiple_destino porque la lógica de A* múltiple es más compleja
 # y el cooldown mitigará su costo.
-def bfs_multiple_destino(grid, start, targets):
+def bfs_multiple_destino(grid, start, targets, vT):
     """
     Realiza una única búsqueda BFS desde 'start' para encontrar los caminos
     más cortos a un conjunto de 'targets' (recursos) en una sola pasada.
@@ -112,7 +112,7 @@ def bfs_multiple_destino(grid, start, targets):
             
             caminos_encontrados[actual] = camino[1:]
             
-            if len(caminos_encontrados) == len(targets):
+            if len(caminos_encontrados) == vT:
                 break
 
         x, y = actual

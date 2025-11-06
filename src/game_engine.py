@@ -1,7 +1,5 @@
-# game_engine.py (OPTIMIZADO CON COOLDOWN Y COLISIÓN DE MINAS CORREGIDA)
-
 from map_manager import MapManager 
-from resources import Persona 
+from resources import Persona, Recurso 
 
 BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130
@@ -37,6 +35,17 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and collision_type.startswith("mina"):
+                
+                # LÓGICA DE LIBERACIÓN DE RECURSO (si el vehículo explotado tenía una reserva):
+                if veh.objetivo_actual:
+                    target_fila, target_col = veh.objetivo_actual
+                    recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
+                    
+                    # Solo libera si es un Recurso Y está reservado por ESTE equipo
+                    if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == veh.equipo:
+                        recurso_objetivo.buscado = None # Liberar la reserva
+                # FIN LÓGICA DE LIBERACIÓN
+                
                 # Si choca con una mina, explota ANTES de marcarse en la nueva posición.
                 # Esto garantiza que el vehículo nunca sobrescriba el '1' de la mina.
                 mmanager._marcar_vehiculo(veh, valor=0) 
@@ -124,6 +133,10 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if compatible and veh.viajesActuales > 0:
                         veh.recursos.append(entity)
                         
+                        # Al recoger el recurso, debemos liberar la reserva (aunque el recurso se vaya a eliminar)
+                        if entity.buscado == veh.equipo:
+                            entity.buscado = None 
+                            
                         veh.viajesActuales -= 1
                         mmanager.grid_maestra[veh.fila][veh.columna] = 0
                         if entity in mmanager.entities:
@@ -134,9 +147,25 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
                 
                 elif collision_type == "vehiculo":
+                    
+                    # LÓGICA DE LIBERACIÓN PARA VEHÍCULO 1 (veh)
+                    if veh.objetivo_actual:
+                        target_fila, target_col = veh.objetivo_actual
+                        recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
+                        if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == veh.equipo:
+                            recurso_objetivo.buscado = None 
+                    
                     mmanager._marcar_vehiculo(veh, valor=0)
                     veh.explotar()
                     veh.camino = []
+                    
+                    # LÓGICA DE LIBERACIÓN PARA VEHÍCULO 2 (entity)
+                    if entity.objetivo_actual:
+                        target_fila, target_col = entity.objetivo_actual
+                        recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
+                        if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == entity.equipo:
+                            recurso_objetivo.buscado = None 
+
                     mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar()
                     entity.camino = []
@@ -146,8 +175,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
 
 def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:
-    
-
     
     event_message = update_simulation(mmanager, flota_total)
     

@@ -28,7 +28,7 @@ TERRENO_FONDO = (250, 250, 250)
 COLOR_MINA_CIRCULAR = (100, 100, 100)
 COLOR_MINA_LINEAL = (150, 0, 0)       
 COLOR_MINA_MOVIL = (255, 140, 0)      
-COLOR_PERSONA = (0, 0, 200)           
+COLOR_PERSONA = (255, 0, 200)           
 COLOR_RECURSO = (0, 200, 0)           
 
 # Colores para representar equipos

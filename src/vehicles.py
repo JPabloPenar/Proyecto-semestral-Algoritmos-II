@@ -178,10 +178,9 @@ class vehicle:
                     
                     if isinstance(celda_valor, Recurso):
                         recurso = celda_valor
-                        
-                        if self.carga == "todo" or (self.carga == "personas" and isinstance(recurso, Persona)):
-                            recursos_disponibles_pos.append((f, c))
-                            
+                        if recurso.buscado != self.equipo:
+                            if self.carga == "todo" or (self.carga == "personas" and isinstance(recurso, Persona)):
+                                recursos_disponibles_pos.append((f, c))
             if not recursos_disponibles_pos:
                 return None
                 
@@ -191,11 +190,14 @@ class vehicle:
                 temp_grid[f][c] = 0 # El recurso es el destino, no un obstáculo
             
             # 4. Llamar a la función optimizada de BFS Múltiple
-            mejor_destino, camino_mas_corto = bfs_multiple_destino(temp_grid, start, recursos_disponibles_pos)
+            mejor_destino, camino_mas_corto = bfs_multiple_destino(temp_grid, start, recursos_disponibles_pos, self.viajesTotales)
             
             if mejor_destino:
                 self.camino = camino_mas_corto
                 self.objetivo_actual = mejor_destino
+                recurso_objetivo = grid[mejor_destino[0]][mejor_destino[1]]
+                if isinstance(recurso_objetivo, Recurso):
+                    recurso_objetivo.buscado = self.equipo
                 return mejor_destino
             else:
                 return None
