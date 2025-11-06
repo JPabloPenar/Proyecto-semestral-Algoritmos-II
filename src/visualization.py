@@ -92,6 +92,7 @@ botones = {
     "Stop": {"rect": rect_stop, "message": "Deteniendo simulación."}
 }
 
+
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
 fuente_boton = pygame.font.Font(None, 30)
@@ -260,8 +261,9 @@ mmanager.vehicles = flota_total
 
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
-    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2
+    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2, mensaje_simulacion_mostrado
     ejecutando = True
+    
     
     # Inicialice el contador de frames para controlar el tick de la lógica
     frame_counter = 0 
@@ -284,6 +286,7 @@ def main_loop():
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
                     mmanager.reiniciar_puntajes()
+                    mensaje_simulacion_mostrado = False
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
                         # 1. Resetear y Reposicionar los vehículos
@@ -301,6 +304,7 @@ def main_loop():
                         
                 elif botones["Play"]["rect"].collidepoint(mouse_pos):
                     mmanager.reiniciar_puntajes()
+                    mensaje_simulacion_mostrado = False
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
@@ -391,10 +395,12 @@ def main_loop():
                                                                 
         
         # --- Verificar condiciones de fin de simulación ---
-        if mmanager.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
-            SIMULATION_STATE = "TERMINADO"
-            print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
-            
+        if SIMULATION_STATE != "TERMINADO":
+            if mmanager.check_condiciones_parada():
+                if not mensaje_simulacion_mostrado:
+                    SIMULATION_STATE = "TERMINADO"
+                    print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+                    mensaje_simulacion_mostrado = True
         
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)

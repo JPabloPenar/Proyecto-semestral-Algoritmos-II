@@ -147,7 +147,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
                 
                 elif collision_type == "vehiculo":
-                    
+                    if veh.equipo == entity.equipo:
+                        return
                     # LÓGICA DE LIBERACIÓN PARA VEHÍCULO 1 (veh)
                     if veh.objetivo_actual:
                         target_fila, target_col = veh.objetivo_actual
