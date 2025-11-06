@@ -295,9 +295,14 @@ class MapManager:
         for i in range(cantidad):
             puntos_ganados += vehiculo.recursos[i].get_puntos()
         self.puntajes[vehiculo.equipo] += puntos_ganados
+        
 
         # Vacia el inventario.
         vehiculo.recursos.clear()
+    
+    def reiniciar_puntajes(self):
+        self.puntajes["Rojo"] = 0
+        self.puntajes["Azul"] = 0
 
     def check_vehicle_collisions(self, veh):
 

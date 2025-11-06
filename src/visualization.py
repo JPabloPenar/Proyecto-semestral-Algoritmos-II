@@ -283,6 +283,7 @@ def main_loop():
                 
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
+                    mmanager.reiniciar_puntajes()
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
                         # 1. Resetear y Reposicionar los vehículos
@@ -299,6 +300,7 @@ def main_loop():
                         print("La simulación debe estar detenida para reinicializar.")
                         
                 elif botones["Play"]["rect"].collidepoint(mouse_pos):
+                    mmanager.reiniciar_puntajes()
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
