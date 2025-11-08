@@ -372,8 +372,13 @@ class MapManager:
             'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado == "activo")
         }
         
+        algun_vehiculo_tiene_recursos = any(
+            v.estado == "activo" and v.recursos 
+            for v in self.vehicles
+        )
+
         # Condiciones de parada
-        if not recursos_restantes:
+        if not recursos_restantes and not algun_vehiculo_tiene_recursos:
             print("[FIN] No quedan más recursos.")
             return True
         
