@@ -13,9 +13,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     for veh in flota_total:
         
         if veh.estado != "activo":
-            # Asegurarse de que el vehículo "inactivo" esté borrado de la grid
-            # Asumiendo que flota_total incluye todos los vehículos, activos o no.
-            # Esto solo se ejecutaría una vez al explotar.
             if mmanager.grid_maestra[veh.fila][veh.columna] == veh:
                 mmanager._marcar_vehiculo(veh, valor=0) 
             continue
@@ -69,7 +66,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
         if is_in_base and veh.recursos:
             mmanager._entregar_recursos(veh)
-
 
         # B) Si está en la base Y no tiene viajes pendientes: 
         if is_in_base and veh.viajesActuales < veh.viajesTotales:
@@ -143,7 +139,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             mmanager.entities.remove(entity)    
                         
                         veh.objetivo_actual = None
-                        veh.volver_a_base(mmanager.grid_maestra)
+                        if veh.viajesActuales == veh.viajesTotales:
+                            
+                            veh.volver_a_base(mmanager.grid_maestra)
 
                 
                 elif collision_type == "vehiculo":
