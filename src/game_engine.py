@@ -1,5 +1,6 @@
 from map_manager import MapManager 
 from resources import Persona, Recurso 
+from vehicles import moto, camion
 
 BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130
@@ -10,6 +11,11 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     
     mmanager.update_time()
 
+    camiones_azules = [
+                    v for v in mmanager.vehicles 
+                    if v.equipo == "Azul" and isinstance(v, camion) and v.estado == "activo"
+                ]
+    
     for veh in flota_total:
         
         if veh.estado != "activo":
@@ -84,6 +90,25 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
         if veh.objetivo_actual is None: 
             
+            # Para motos rojas: prioridad atacar camiones azules
+            if isinstance(veh, moto) and veh.equipo == "Rojo":
+
+                if camiones_azules:
+                    # Elegimos el camión más cercano usando Manhattan
+                    min_dist = float('inf')
+                    target_camion = None
+                    for c in camiones_azules:
+                        dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+                        if dist < min_dist:
+                            min_dist = dist
+                            target_camion = c
+
+                    if target_camion:
+                        veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+                        veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                        continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+
+            
             # Solo busca si el cooldown terminó Y no está volviendo a base.
             current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
             can_search = current_cooldown == 0
@@ -131,7 +156,11 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                                   (veh.carga == "personas" and isinstance(entity, Persona)))
 
                     if compatible and veh.viajesActuales > 0:
-                        veh.recursos.append(entity)
+                        
+                        if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
+                            break
+                        else:
+                            veh.recursos.append(entity)
                         
                         # Al recoger el recurso, debemos liberar la reserva (aunque el recurso se vaya a eliminar)
                         if entity.buscado == veh.equipo:
@@ -143,7 +172,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             mmanager.entities.remove(entity)    
                         
                         veh.objetivo_actual = None
-                        veh.volver_a_base(mmanager.grid_maestra)
+                        if veh.viajesActuales == veh.viajesTotales:
+                            
+                            veh.volver_a_base(mmanager.grid_maestra)
 
                 
                 elif collision_type == "vehiculo":

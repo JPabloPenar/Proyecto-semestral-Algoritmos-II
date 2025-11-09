@@ -400,6 +400,10 @@ def main_loop():
                 if not mensaje_simulacion_mostrado:
                     SIMULATION_STATE = "TERMINADO"
                     print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+                    if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
+                        print("[GANADOR] Ha ganado el equipo rojo.")
+                    else:
+                        print("[GANADOR] Ha ganado el equipo azul")
                     mensaje_simulacion_mostrado = True
         
         # 3. Dibujo (Esta sección se mantiene igual)
