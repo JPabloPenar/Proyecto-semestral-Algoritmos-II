@@ -178,7 +178,7 @@ class vehicle:
                     
                     if isinstance(celda_valor, Recurso):
                         recurso = celda_valor
-                        if recurso.buscado != self.equipo:
+                        if self.equipo not in recurso.buscado:
                             if self.carga == "todo" or (self.carga == "personas" and isinstance(recurso, Persona)):
                                 recursos_disponibles_pos.append((f, c))
             if not recursos_disponibles_pos:
@@ -197,7 +197,7 @@ class vehicle:
                 self.objetivo_actual = mejor_destino
                 recurso_objetivo = grid[mejor_destino[0]][mejor_destino[1]]
                 if isinstance(recurso_objetivo, Recurso):
-                    recurso_objetivo.buscado = self.equipo
+                    recurso_objetivo.buscado.append(self.equipo)
                 return mejor_destino
             else:
                 return None

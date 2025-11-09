@@ -18,7 +18,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     
     for veh in flota_total:
         
-        # El estado 'explotado' no existe, debe ser 'inactivo' según vehicles.py
         if veh.estado != "activo" and veh.estado != "en_cooldown":
             if mmanager.grid_maestra[veh.fila][veh.columna] == veh:
                 mmanager._marcar_vehiculo(veh, valor=0) 
@@ -28,13 +27,13 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if hasattr(veh, 'search_cooldown'):
             if veh.search_cooldown > 0:
                 veh.search_cooldown -= 1
-                veh.estado = "en_cooldown" # <-- NUEVA LÍNEA: Establecer estado en cooldown
+                veh.estado = "en_cooldown"
             elif veh.estado == "en_cooldown" and veh.search_cooldown == 0:
-                veh.estado = "activo"      # <-- NUEVA LÍNEA: Devolver a activo
+                veh.estado = "activo"
 
-        # Si el vehículo está en cooldown, no debe moverse ni buscar.
-        if veh.estado == "en_cooldown":
-            continue
+        # # Si el vehículo está en cooldown, no debe moverse ni buscar.
+        # if veh.estado == "en_cooldown":
+        #     continue
 
         # 2. Movimiento (si hay camino)
         # ... (código que maneja el movimiento, colisión con minas, y marcaje)
@@ -54,8 +53,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
                     
                     # Solo libera si es un Recurso Y está reservado por ESTE equipo
-                    if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == veh.equipo:
-                        recurso_objetivo.buscado = None # Liberar la reserva
+                    if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
+                        recurso_objetivo.buscado.remove(veh.equipo) # Liberar la reserva
                 # FIN LÓGICA DE LIBERACIÓN
                 
                 # Si choca con una mina, explota ANTES de marcarse en la nueva posición.
@@ -86,6 +85,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if is_in_base and veh.viajesActuales < veh.viajesTotales:
             veh.viajesActuales = veh.viajesTotales 
             veh.objetivo_actual = None
+            if veh.viajesActuales > 0 and veh.objetivo_actual is None:
+                veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
+                continue
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
         # NOTA: La lógica en vehicle.py ahora se asegura de que objetivo_actual=None 
@@ -170,8 +172,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             veh.recursos.append(entity)
                         
                         # Al recoger el recurso, debemos liberar la reserva (aunque el recurso se vaya a eliminar)
-                        if entity.buscado == veh.equipo:
-                            entity.buscado = None 
+                        if veh.equipo in entity.buscado:
+                            entity.buscado.remove(veh.equipo) 
                             
                         veh.viajesActuales -= 1
                         mmanager.grid_maestra[veh.fila][veh.columna] = 0
@@ -179,7 +181,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             mmanager.entities.remove(entity)    
                         
                         veh.objetivo_actual = None
-                        if veh.viajesActuales == veh.viajesTotales:
+                        if veh.viajesActuales == 0:
                             veh.volver_a_base(mmanager.grid_maestra)
 
                 
@@ -190,8 +192,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if veh.objetivo_actual:
                         target_fila, target_col = veh.objetivo_actual
                         recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
-                        if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == veh.equipo:
-                            recurso_objetivo.buscado = None 
+                        if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
+                            recurso_objetivo.buscado.remove(veh.equipo) 
                     
                     mmanager._marcar_vehiculo(veh, valor=0)
                     veh.explotar() # Cambia estado a 'inactivo'
@@ -201,8 +203,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if entity.objetivo_actual:
                         target_fila, target_col = entity.objetivo_actual
                         recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
-                        if isinstance(recurso_objetivo, Recurso) and recurso_objetivo.buscado == entity.equipo:
-                            recurso_objetivo.buscado = None 
+                        if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
+                            recurso_objetivo.buscado.remove(veh.equipo)
 
                     mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar() # Cambia estado a 'inactivo'
