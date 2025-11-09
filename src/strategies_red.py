@@ -1,7 +1,7 @@
 def moto_chocadora(motos, flota_azul, grid):
     #*
     # Función para que las motos adopten distintas estrategias según el escenario.
-    # Persigue a los camiones azules luego de recoger un recurso.
+    # Persigue a los camiones azules. En el camino, podría colisionar con otro vehículo que no sea camión.
     # *#
     camiones_objetivo = [v for v in flota_azul if v.estado == "activo" and v.__class__.__name__=="camion"]
     

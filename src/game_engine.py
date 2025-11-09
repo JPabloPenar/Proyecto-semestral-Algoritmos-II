@@ -173,7 +173,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                         
                         veh.objetivo_actual = None
                         if veh.viajesActuales == veh.viajesTotales:
-                            
                             veh.volver_a_base(mmanager.grid_maestra)
 
                 
