@@ -16,6 +16,12 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if v.equipo == "Azul" and isinstance(v, camion) and v.estado == "activo"
                 ]
     
+
+    motos_rojas = [
+        v for v in mmanager.vehicles 
+        if v.equipo == "Rojo" and isinstance(v, moto) and v.estado == "activo"
+    ]
+    
     for veh in flota_total:
         
         if veh.estado != "activo" and veh.estado != "en_cooldown":
@@ -27,13 +33,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if hasattr(veh, 'search_cooldown'):
             if veh.search_cooldown > 0:
                 veh.search_cooldown -= 1
-                veh.estado = "en_cooldown"
+                #veh.estado = "en_cooldown"
             elif veh.estado == "en_cooldown" and veh.search_cooldown == 0:
                 veh.estado = "activo"
-
-        # # Si el vehículo está en cooldown, no debe moverse ni buscar.
-        # if veh.estado == "en_cooldown":
-        #     continue
 
         # 2. Movimiento (si hay camino)
         # ... (código que maneja el movimiento, colisión con minas, y marcaje)
@@ -94,8 +96,57 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
         veh.actualizar_objetivo(mmanager.grid_maestra)
 
+        if isinstance(veh, moto) and veh.equipo == "Azul" and motos_rojas:
+            
+            # 2. Elegimos la moto roja más cercana usando Manhattan
+            min_dist = float('inf')
+            target_moto_roja = None
+            for mr in motos_rojas:
+                dist = abs(mr.fila - veh.fila) + abs(mr.columna - veh.columna)
+                if dist < min_dist:
+                    min_dist = dist
+                    target_moto_roja = mr
+
+            if target_moto_roja:
+                # 3. Asignar el objetivo y calcular el camino con A*
+                veh.objetivo_actual = (target_moto_roja.fila, target_moto_roja.columna)
+                veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
-        if veh.objetivo_actual is None: 
+        elif veh.objetivo_actual is None: 
+            
+            # Solo busca si el cooldown terminó Y no está volviendo a base.
+            current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
+            can_search = current_cooldown == 0
+             
+            if can_search:
+
+                if veh.viajesActuales > 0:
+                    recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
+                    
+                    if not recurso_encontrado: 
+                        # Si FALLA la búsqueda (no hay recursos accesibles)
+                        
+                        # Si no encontró objetivo Y no está en base: intenta volver a base.
+                        if veh.objetivo_actual is None and not is_in_base: 
+                            veh.volver_a_base(mmanager.grid_maestra)
+                            
+                        # Si 'volver_a_base' falló en encontrar camino, establece el cooldown
+                            if not veh.camino and hasattr(veh, 'search_cooldown'): 
+                                veh.search_cooldown = 30
+                            # No establecemos el estado aquí, se establecerá 'en_cooldown' en el siguiente tick.
+
+
+                # --- LÓGICA DE VOLVER A BASE (Si agotó viajes o la búsqueda anterior no lo movió) ---
+                if veh.objetivo_actual is None and not is_in_base: 
+                    veh.volver_a_base(mmanager.grid_maestra)
+                    
+                    # Si 'volver_a_base' falló en encontrar camino
+                    if not veh.camino and hasattr(veh, 'search_cooldown'): 
+                        veh.search_cooldown = 30 
+            # Si está en cooldown, el 'continue' inicial lo salta.
+            
             
             # Para motos rojas: prioridad atacar camiones azules
             if isinstance(veh, moto) and veh.equipo == "Rojo":
@@ -116,39 +167,8 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                         continue  # Ya tiene objetivo, pasamos al siguiente vehículo
 
             
-            # Solo busca si el cooldown terminó Y no está volviendo a base.
-            current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
-            can_search = current_cooldown == 0
-            
             # La bandera cooldown_just_set ya no se necesita aquí porque el estado 'en_cooldown'
             # y el 'continue' al inicio del bucle manejan la espera.
-            
-            if can_search:
-
-                if veh.viajesActuales > 0:
-                    recurso_encontrado = veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
-                    
-                    if not recurso_encontrado: 
-                        # Si FALLA la búsqueda (no hay recursos accesibles)
-                        
-                        # Si no encontró objetivo Y no está en base: intenta volver a base.
-                        if veh.objetivo_actual is None and not is_in_base: 
-                            veh.volver_a_base(mmanager.grid_maestra)
-                            
-                        # Si 'volver_a_base' falló en encontrar camino, establece el cooldown
-                        if not veh.camino and hasattr(veh, 'search_cooldown'): 
-                            veh.search_cooldown = 30
-                            # No establecemos el estado aquí, se establecerá 'en_cooldown' en el siguiente tick.
-
-
-                # --- LÓGICA DE VOLVER A BASE (Si agotó viajes o la búsqueda anterior no lo movió) ---
-                if veh.objetivo_actual is None and not is_in_base: 
-                    veh.volver_a_base(mmanager.grid_maestra)
-                    
-                    # Si 'volver_a_base' falló en encontrar camino
-                    if not veh.camino and hasattr(veh, 'search_cooldown'): 
-                        veh.search_cooldown = 30 
-            # Si está en cooldown, el 'continue' inicial lo salta.
 
 
         # 4. Lógica de Colisión (solo si está activo)
