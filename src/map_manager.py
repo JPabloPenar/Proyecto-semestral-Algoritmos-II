@@ -572,7 +572,13 @@ class MapManager:
         # Actualizar la posición antigua para el siguiente tick
         self.old_mobile_mine_fila = self.mobile_mine.fila
         self.old_mobile_mine_col = self.mobile_mine.columna
-
+        if self.mobile_mine_visible:
+            for veh in self.vehicles:
+                if veh.estado == "activo":
+                    # Forzamos la replanificación: Borramos el camino.
+                    # El método actualizar_objetivo en vehicles.py forzará el cálculo 
+                    # de un nuevo camino en el siguiente tick, usando la grilla actualizada.
+                    veh.camino = []
 
 
 
