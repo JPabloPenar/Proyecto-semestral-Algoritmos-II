@@ -234,7 +234,7 @@ def draw_entities(surface, mmanager):
         
         # Dibujar el radio de efecto
         pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio)*5, 2)
-        
+         
         # Dibujar el cuerpo de la mina (Cuadrado/Diamante)
         size = 1
         puntos = [

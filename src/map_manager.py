@@ -575,11 +575,16 @@ class MapManager:
         if self.mobile_mine_visible:
             for veh in self.vehicles:
                 if veh.estado == "activo":
-                    # Forzamos la replanificación: Borramos el camino.
-                    # El método actualizar_objetivo en vehicles.py forzará el cálculo 
-                    # de un nuevo camino en el siguiente tick, usando la grilla actualizada.
-                    veh.camino = []
-
+                   path_is_blocked = False
+                   for fila, col in veh.camino:
+                        if self.grid_maestra[fila][col] == 1:
+                            path_is_blocked = True
+                            break # No necesita chequear el resto del camino
+                            
+                   if path_is_blocked:
+                        # Si el camino está bloqueado, se elimina para forzar la replanificación
+                        # en el siguiente tick a través de 'actualizar_objetivo' en game_engine.
+                        veh.camino = []
 
 
     RELOCATION_TICK = 35
