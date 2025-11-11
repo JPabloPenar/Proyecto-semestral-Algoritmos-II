@@ -128,6 +128,34 @@ class MapManager:
         self.history.append(state_bytes)
         self.current_history_index = len(self.history) - 1
 
+    def _guardar_partida_inicial(self):
+        """Guarda el estado completo del MapManager, excluyendo el historial interno, en una nueva carpeta."""
+        
+        # Crea la carpeta si no existe
+        os.makedirs(self.partida_dir, exist_ok=True)
+        
+        # Generar un nombre de archivo único basado en la hora
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(self.partida_dir, f"partida_{timestamp}.partida")
+
+        # Temporalmente vaciamos el historial interno y el historial de pasos para evitar recursión y sobrecarga
+        temp_history = self.history
+        temp_index = self.current_history_index
+        self.history = []
+        self.current_history_index = -1
+        
+        try:
+            with open(filename, 'wb') as file:
+                # Guardamos el objeto MapManager completo (Grid, Entidades, Vehículos, Puntajes 0, etc.)
+                pickle.dump(self, file)
+            print(f"Partida inicial guardada: {filename}")
+        except Exception as e:
+            print(f"Error al guardar la partida inicial: {e}")
+        finally:
+            # Restauramos el historial interno
+            self.history = temp_history
+            self.current_history_index = temp_index
+
     def _load_state_from_bytes(self, state_bytes):
         """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
         loaded_state = pickle.loads(state_bytes)
@@ -174,6 +202,45 @@ class MapManager:
         self.history = []
         self.current_history_index = -1
         self.time_instance = 0 # Reinicia el contador de tiempo
+
+    def listar_partidas_guardadas(self):
+        """Retorna una lista de nombres de archivos de partidas guardadas."""
+        if not os.path.exists(self.partida_dir):
+            return []
+        
+        # Filtra solo los archivos con la extensión .partida
+        return [f for f in os.listdir(self.partida_dir) if f.endswith('.partida')]
+
+    def cargar_partida_inicial(self, filename):
+        """Carga un estado de partida guardado y lo aplica al MapManager actual."""
+        filepath = os.path.join(self.partida_dir, filename)
+        
+        if not os.path.exists(filepath):
+            print(f"Error: Archivo de partida '{filename}' no encontrado.")
+            return False
+            
+        try:
+            with open(filepath, 'rb') as file:
+                loaded_mmanager = pickle.load(file)
+            
+            # --- Aplica el estado cargado al objeto MapManager actual ---
+            # Reemplazamos todos los atributos del MapManager actual con los cargados
+            self.__dict__.update(loaded_mmanager.__dict__)
+            
+            # Limpiar el historial paso a paso de la partida anterior (ya que esta es nueva)
+            self.history = []
+            self.current_history_index = -1
+            self.time_instance = 0
+            
+            # Guardamos este nuevo estado inicial en el historial paso a paso
+            self.guardar_estado_historial()
+            
+            print(f"Partida cargada exitosamente: {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"Error al cargar la partida: {e}")
+            return False
     
 
     # --- VARIABLES DE UNIDADES Y MAPA ---
@@ -252,7 +319,7 @@ class MapManager:
         self.mobile_mine_visible = False
         self.is_relocating = False
         self.vehicles = []
-        # Inicializa la GRID MAESTRA para pathfinding (incluye bases y terreno)
+
         self.grid_maestra = self._crear_grid(self.GRID_FILAS_TOTALES, self.GRID_COLS_TOTALES)
 
         # RASTREO DE POSICIÓN ANTERIOR DE MINA MÓVIL
@@ -264,6 +331,7 @@ class MapManager:
         self.history = [] 
         self.current_history_index = -1
         self.base_dir = "map_history" # Carpeta para guardar los estados
+        self.partida_dir = "partida_saves"
         
         # Atributos para los puntajes de los equipos
         self.puntajes = {'Rojo': 0, 'Azul': 0}
@@ -546,8 +614,11 @@ class MapManager:
         self.old_mobile_mine_col = self.mobile_mine.columna
         self._initial_placement_done = True
 
-    
+        # Guardamos el estado inicial de nuestra partida 
+        # Sera usado para acceder al resto de estados de nuestra ejecucion
+        self._guardar_partida_inicial()
 
+    
     def _marcar_area_mina(self, mina: Mina, valor=1):
         fila_c, col_c = mina.fila, mina.columna
         radio = int(mina.radio) # Usamos el radio directamente para la grid

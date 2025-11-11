@@ -5,6 +5,8 @@ from map_manager import MapManager
 from mines import Mina, MinaT1, MinaT2, MinaG1
 from resources import Recurso, Persona
 from vehicles import jeep, moto, camion, auto
+import tkinter as tk
+from tkinter import filedialog
 
 # IMPORTAR el nuevo módulo de lógica del juego
 from game_engine import update_simulation, update_and_get_next_state 
@@ -245,6 +247,46 @@ def draw_entities(surface, mmanager):
         pygame.draw.polygon(surface, COLOR_MINA_MOVIL, puntos)
         pygame.draw.polygon(surface, NEGRO, puntos, 1) # Borde negro
 
+def _load_saved_game_dialog(mmanager):
+    """Abre un diálogo nativo de selección de archivos y carga la partida seleccionada."""
+    
+    # 1. Esconder la ventana de Pygame temporalmente
+    pygame.display.iconify()
+    
+    # 2. Inicializar Tkinter (Necesario para el diálogo)
+    root = tk.Tk()
+    root.withdraw() # Esconder la ventana principal de Tkinter
+    
+    # Asegurar que el directorio de partidas exista
+    if not os.path.exists(mmanager.partida_dir):
+        os.makedirs(mmanager.partida_dir, exist_ok=True)
+
+    try:
+        # Abrir el diálogo de selección de archivos
+        filename = filedialog.askopenfilename(
+            initialdir=os.path.abspath(mmanager.partida_dir),
+            title="Seleccionar Partida Guardada",
+            filetypes=(("Archivos de Partida", "*.partida"), ("Todos los archivos", "*.*"))
+        )
+        
+        # 3. Si se seleccionó un archivo
+        if filename:
+            # Obtener solo el nombre del archivo del path completo
+            selected_filename = os.path.basename(filename) 
+            
+            if mmanager.cargar_partida_inicial(selected_filename):
+                print(f"[CARGA EXITOSA] Partida '{selected_filename}' cargada. Lista para simular.")
+                return True
+            
+    except Exception as e:
+        print(f"[ERROR DE CARGA] No se pudo abrir el diálogo o cargar la partida: {e}")
+        
+    finally:
+        # 4. Restaurar la ventana de Pygame
+        root.destroy()
+        pygame.display.uniconify()
+        
+    return False
 
 # --- INICIALIZACION DEL MOTOR DE JUEGO ---
 ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
@@ -283,6 +325,21 @@ def main_loop():
                 
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
+
+                    # 1. VERIFICAR SI LA TECLA MODIFICADORA ESTÁ PRESIONADA
+                    teclas = pygame.key.get_pressed()
+                    
+                    # Si Shift O Ctrl están presionados, intentamos cargar
+                    if teclas[pygame.K_LSHIFT] or teclas[pygame.K_RSHIFT] or teclas[pygame.K_LCTRL] or teclas[pygame.K_RCTRL]:
+                        print("\n[MODO CARGA ACTIVADO] Buscando partidas guardadas...")
+                        
+                        # Si la carga es exitosa, necesitamos sincronizar la flota
+                        if _load_saved_game_dialog(mmanager):
+                            # Sincronizamos la flota total del juego con la flota cargada
+                            flota_total = mmanager.vehicles
+                            SIMULATION_STATE = "INITIALIZED"
+                        continue # Salimos del manejo del botón para no ejecutar la distribución
+
                     mmanager.reiniciar_puntajes()
                     mensaje_simulacion_mostrado = False
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
