@@ -16,6 +16,12 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if v.equipo == "Azul" and isinstance(v, camion) and v.estado == "activo"
                 ]
     
+
+    motos_rojas = [
+        v for v in mmanager.vehicles 
+        if v.equipo == "Rojo" and isinstance(v, moto) and v.estado == "activo"
+    ]
+    
     for veh in flota_total:
         
         if veh.estado != "activo" and veh.estado != "en_cooldown":
@@ -110,10 +116,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             # Solo busca si el cooldown terminó Y no está volviendo a base.
             current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
             can_search = current_cooldown == 0
-            
-            # La bandera cooldown_just_set ya no se necesita aquí porque el estado 'en_cooldown'
-            # y el 'continue' al inicio del bucle manejan la espera.
-            
+             
             if can_search:
 
                 if veh.viajesActuales > 0:
@@ -140,6 +143,29 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if not veh.camino and hasattr(veh, 'search_cooldown'): 
                         veh.search_cooldown = 1
             # Si está en cooldown, el 'continue' inicial lo salta.
+            
+            
+            # Para motos rojas: prioridad atacar camiones azules
+            if isinstance(veh, moto) and veh.equipo == "Rojo":
+
+                if camiones_azules:
+                    # Elegimos el camión más cercano usando Manhattan
+                    min_dist = float('inf')
+                    target_camion = None
+                    for c in camiones_azules:
+                        dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+                        if dist < min_dist:
+                            min_dist = dist
+                            target_camion = c
+
+                    if target_camion:
+                        veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+                        veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                        continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+
+            
+            # La bandera cooldown_just_set ya no se necesita aquí porque el estado 'en_cooldown'
+            # y el 'continue' al inicio del bucle manejan la espera.
 
 
         # 4. Lógica de Colisión (solo si está activo)
