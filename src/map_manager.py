@@ -368,8 +368,8 @@ class MapManager:
         
         # Contar vehículos activos por equipo
         vehiculos_activos = {
-            'Rojo': sum(1 for v in self.vehicles if v.equipo == "Rojo" and v.estado == "activo"),
-            'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado == "activo")
+            'Rojo': sum(1 for v in self.vehicles if v.equipo == "Rojo" and v.estado != "inactivo"),
+            'Azul': sum(1 for v in self.vehicles if v.equipo == "Azul" and v.estado != "inactivo")
         }
         
         algun_vehiculo_tiene_recursos = any(
