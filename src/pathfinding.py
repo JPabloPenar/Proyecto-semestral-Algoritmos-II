@@ -1,8 +1,5 @@
-# pathfinding.py (OPTIMIZADO CON A-STAR)
-
 from collections import deque
 import heapq # Necesario para la cola de prioridad de A*
-import math # Necesario para manhattan_distance
 
 def manhattan_distance(p1, p2):
     """Heurística: Distancia de Manhattan (cuadrícula)."""
