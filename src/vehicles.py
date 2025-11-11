@@ -48,6 +48,7 @@ class vehicle:
         self.camino = []
         self.objetivo_actual = None
         self.equipo= None
+        
     
     def agregar_objetivo(self, fila, columna):
         # NOTA: Asumimos que fila/columna aquí son coordenadas de la GRILLA GLOBAL (MapManager).
@@ -135,6 +136,12 @@ class vehicle:
             # (Las siguientes líneas son técnicamente redundantes pero mantienen la consistencia)
             self.px = objetivoX
             self.py = objetivoY
+    def liberar_recurso(self, grid):
+        if self.objetivo_actual:
+            target_fila, target_col = self.objetivo_actual
+            recurso_objetivo = grid[target_fila][target_col]
+            if isinstance(recurso_objetivo, Recurso) and self.equipo in recurso_objetivo.buscado:
+                    recurso_objetivo.buscado.remove(self.equipo) 
 
     # *** MODIFICADA: Eliminación de Copia de Grid y Uso de A* ***
     def volver_a_base(self, grid):

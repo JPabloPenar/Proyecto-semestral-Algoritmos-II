@@ -264,7 +264,6 @@ def main_loop():
     global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2, mensaje_simulacion_mostrado
     ejecutando = True
     
-    
     # Inicialice el contador de frames para controlar el tick de la lógica
     frame_counter = 0 
     

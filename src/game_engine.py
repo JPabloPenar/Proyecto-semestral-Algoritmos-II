@@ -28,12 +28,9 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             if veh.search_cooldown > 0:
                 veh.search_cooldown -= 1
                 veh.estado = "en_cooldown"
+                veh.liberar_recurso(mmanager.grid_maestra)
             elif veh.estado == "en_cooldown" and veh.search_cooldown == 0:
                 veh.estado = "activo"
-
-        # # Si el vehículo está en cooldown, no debe moverse ni buscar.
-        # if veh.estado == "en_cooldown":
-        #     continue
 
         # 2. Movimiento (si hay camino)
         # ... (código que maneja el movimiento, colisión con minas, y marcaje)
@@ -47,23 +44,11 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             
             if collision_type and collision_type.startswith("mina"):
                 
-                # LÓGICA DE LIBERACIÓN DE RECURSO (si el vehículo explotado tenía una reserva):
-                if veh.objetivo_actual:
-                    target_fila, target_col = veh.objetivo_actual
-                    recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
-                    
-                    # Solo libera si es un Recurso Y está reservado por ESTE equipo
-                    if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
-                        recurso_objetivo.buscado.remove(veh.equipo) # Liberar la reserva
-                # FIN LÓGICA DE LIBERACIÓN
-                
-                # Si choca con una mina, explota ANTES de marcarse en la nueva posición.
-                # Esto garantiza que el vehículo nunca sobrescriba el '1' de la mina.
+                veh.liberar_recurso(mmanager.grid_maestra)
                 mmanager._marcar_vehiculo(veh, valor=0) 
                 veh.explotar() # Cambia estado a 'inactivo'
                 veh.camino = []
                 continue # Pasa al siguiente vehículo
-            # -----------------------------------------------------------------
 
             # Se marca la celda NUEVA después de mover (Solo si no explotó con mina)
             mmanager._marcar_vehiculo(veh) 
@@ -90,7 +75,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                 continue
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
-        # NOTA: La lógica en vehicle.py ahora se asegura de que objetivo_actual=None 
         # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
         veh.actualizar_objetivo(mmanager.grid_maestra)
 
@@ -98,24 +82,23 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if veh.objetivo_actual is None: 
             
             # Para motos rojas: prioridad atacar camiones azules
-            if isinstance(veh, moto) and veh.equipo == "Rojo":
+            # if isinstance(veh, moto) and veh.equipo == "Rojo":
 
-                if camiones_azules:
-                    # Elegimos el camión más cercano usando Manhattan
-                    min_dist = float('inf')
-                    target_camion = None
-                    for c in camiones_azules:
-                        dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
-                        if dist < min_dist:
-                            min_dist = dist
-                            target_camion = c
+            #     if camiones_azules:
+            #         # Elegimos el camión más cercano usando Manhattan
+            #         min_dist = float('inf')
+            #         target_camion = None
+            #         for c in camiones_azules:
+            #             dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+            #             if dist < min_dist:
+            #                 min_dist = dist
+            #                 target_camion = c
 
-                    if target_camion:
-                        veh.objetivo_actual = (target_camion.fila, target_camion.columna)
-                        veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-                        continue  # Ya tiene objetivo, pasamos al siguiente vehículo
-
-            
+            #         if target_camion:
+            #             veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+            #             veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+            #             continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+   
             # Solo busca si el cooldown terminó Y no está volviendo a base.
             current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
             can_search = current_cooldown == 0
@@ -137,7 +120,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             
                         # Si 'volver_a_base' falló en encontrar camino, establece el cooldown
                         if not veh.camino and hasattr(veh, 'search_cooldown'): 
-                            veh.search_cooldown = 30
+                            veh.search_cooldown = 1
                             # No establecemos el estado aquí, se establecerá 'en_cooldown' en el siguiente tick.
 
 
@@ -147,7 +130,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     
                     # Si 'volver_a_base' falló en encontrar camino
                     if not veh.camino and hasattr(veh, 'search_cooldown'): 
-                        veh.search_cooldown = 30 
+                        veh.search_cooldown = 1
             # Si está en cooldown, el 'continue' inicial lo salta.
 
 
@@ -166,10 +149,10 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
                     if compatible and veh.viajesActuales > 0:
                         
-                        if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
-                            break
-                        else:
-                            veh.recursos.append(entity)
+                        # if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
+                        #     break
+                        # else:
+                        veh.recursos.append(entity)
                         
                         # Al recoger el recurso, debemos liberar la reserva (aunque el recurso se vaya a eliminar)
                         if veh.equipo in entity.buscado:
@@ -188,24 +171,12 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                 elif collision_type == "vehiculo":
                     if veh.equipo == entity.equipo:
                         return
-                    # LÓGICA DE LIBERACIÓN PARA VEHÍCULO 1 (veh)
-                    if veh.objetivo_actual:
-                        target_fila, target_col = veh.objetivo_actual
-                        recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
-                        if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
-                            recurso_objetivo.buscado.remove(veh.equipo) 
+                    veh.liberar_recurso(mmanager.grid_maestra)
                     
                     mmanager._marcar_vehiculo(veh, valor=0)
                     veh.explotar() # Cambia estado a 'inactivo'
                     veh.camino = []
-                    
-                    # LÓGICA DE LIBERACIÓN PARA VEHÍCULO 2 (entity)
-                    if entity.objetivo_actual:
-                        target_fila, target_col = entity.objetivo_actual
-                        recurso_objetivo = mmanager.grid_maestra[target_fila][target_col]
-                        if isinstance(recurso_objetivo, Recurso) and veh.equipo in recurso_objetivo.buscado:
-                            recurso_objetivo.buscado.remove(veh.equipo)
-
+                    veh.liberar_recurso(mmanager.grid_maestra)
                     mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar() # Cambia estado a 'inactivo'
                     entity.camino = []
