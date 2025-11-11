@@ -28,7 +28,7 @@ TERRENO_FONDO = (250, 250, 250)
 COLOR_MINA_CIRCULAR = (100, 100, 100)
 COLOR_MINA_LINEAL = (150, 0, 0)       
 COLOR_MINA_MOVIL = (255, 140, 0)      
-COLOR_PERSONA = (255, 0, 200)           
+COLOR_PERSONA = (0, 0, 200)           
 COLOR_RECURSO = (0, 200, 0)           
 
 # Colores para representar equipos
@@ -91,7 +91,6 @@ botones = {
     ">>": {"rect": rect_next, "message": "Replay: Avance."},
     "Stop": {"rect": rect_stop, "message": "Deteniendo simulación."}
 }
-
 
 # --- Fuentes ---
 fuente_titulo = pygame.font.Font(None, 24)
@@ -234,7 +233,7 @@ def draw_entities(surface, mmanager):
         
         # Dibujar el radio de efecto
         pygame.draw.circle(surface, COLOR_MINA_MOVIL, (x, y), int(radio)*5, 2)
-         
+        
         # Dibujar el cuerpo de la mina (Cuadrado/Diamante)
         size = 1
         puntos = [
@@ -261,7 +260,7 @@ mmanager.vehicles = flota_total
 
 # --- BUCLE PRINCIPAL DEL JUEGO (GAME LOOP) ---
 def main_loop():
-    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2, mensaje_simulacion_mostrado
+    global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2
     ejecutando = True
     
     # Inicialice el contador de frames para controlar el tick de la lógica
@@ -284,8 +283,6 @@ def main_loop():
                 
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
-                    mmanager.reiniciar_puntajes()
-                    mensaje_simulacion_mostrado = False
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
                         # 1. Resetear y Reposicionar los vehículos
@@ -302,8 +299,6 @@ def main_loop():
                         print("La simulación debe estar detenida para reinicializar.")
                         
                 elif botones["Play"]["rect"].collidepoint(mouse_pos):
-                    mmanager.reiniciar_puntajes()
-                    mensaje_simulacion_mostrado = False
                     # BOTÓN PLAY
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
@@ -394,16 +389,10 @@ def main_loop():
                                                                 
         
         # --- Verificar condiciones de fin de simulación ---
-        if SIMULATION_STATE != "TERMINADO":
-            if mmanager.check_condiciones_parada():
-                if not mensaje_simulacion_mostrado:
-                    SIMULATION_STATE = "TERMINADO"
-                    print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
-                    if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
-                        print("[GANADOR] Ha ganado el equipo rojo.")
-                    else:
-                        print("[GANADOR] Ha ganado el equipo azul")
-                    mensaje_simulacion_mostrado = True
+        if mmanager.check_condiciones_parada():   # Si la simulación debe terminar, devolverá true.
+            SIMULATION_STATE = "TERMINADO"
+            print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+            
         
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)

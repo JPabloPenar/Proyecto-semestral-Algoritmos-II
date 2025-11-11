@@ -136,6 +136,7 @@ class vehicle:
             # (Las siguientes líneas son técnicamente redundantes pero mantienen la consistencia)
             self.px = objetivoX
             self.py = objetivoY
+            
     def liberar_recurso(self, grid):
         if self.objetivo_actual:
             target_fila, target_col = self.objetivo_actual

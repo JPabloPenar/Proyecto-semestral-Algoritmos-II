@@ -73,6 +73,14 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             if veh.viajesActuales > 0 and veh.objetivo_actual is None:
                 veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
                 continue
+        
+        if veh.objetivo_actual is not None and veh.camino:
+            target_fila, target_col = veh.objetivo_actual
+
+            if mmanager.grid_maestra[target_fila][target_col] == 0:
+
+                veh.objetivo_actual = None
+                veh.camino = []
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
         # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
@@ -82,22 +90,22 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if veh.objetivo_actual is None: 
             
             # Para motos rojas: prioridad atacar camiones azules
-            # if isinstance(veh, moto) and veh.equipo == "Rojo":
+            if isinstance(veh, moto) and veh.equipo == "Rojo":
 
-            #     if camiones_azules:
-            #         # Elegimos el camión más cercano usando Manhattan
-            #         min_dist = float('inf')
-            #         target_camion = None
-            #         for c in camiones_azules:
-            #             dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
-            #             if dist < min_dist:
-            #                 min_dist = dist
-            #                 target_camion = c
+                 if camiones_azules:
+                     # Elegimos el camión más cercano usando Manhattan
+                     min_dist = float('inf')
+                     target_camion = None
+                     for c in camiones_azules:
+                         dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+                         if dist < min_dist:
+                             min_dist = dist
+                             target_camion = c
 
-            #         if target_camion:
-            #             veh.objetivo_actual = (target_camion.fila, target_camion.columna)
-            #             veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-            #             continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+                     if target_camion:
+                         veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+                         veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                         continue  # Ya tiene objetivo, pasamos al siguiente vehículo
    
             # Solo busca si el cooldown terminó Y no está volviendo a base.
             current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
@@ -149,10 +157,10 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
                     if compatible and veh.viajesActuales > 0:
                         
-                        # if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
-                        #     break
-                        # else:
-                        veh.recursos.append(entity)
+                        if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
+                            break
+                        else:
+                            veh.recursos.append(entity)
                         
                         # Al recoger el recurso, debemos liberar la reserva (aunque el recurso se vaya a eliminar)
                         if veh.equipo in entity.buscado:
