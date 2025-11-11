@@ -93,76 +93,76 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         veh.actualizar_objetivo(mmanager.grid_maestra)
 
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
-        # if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
-        #             # Elegimos el camión más cercano usando Manhattan
-        #     min_dist = float('inf')
-        #     target_camion = None
-        #     for c in camiones_azules:
-        #         dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
-        #         if dist < min_dist:
-        #             min_dist = dist
-        #             target_camion = c
+        if isinstance(veh, moto) and veh.equipo == "Rojo" and camiones_azules:
+                    # Elegimos el camión más cercano usando Manhattan
+            min_dist = float('inf')
+            target_camion = None
+            for c in camiones_azules:
+                dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+                if dist < min_dist:
+                    min_dist = dist
+                    target_camion = c
 
-        #     if target_camion:
-        #         veh.objetivo_actual = (target_camion.fila, target_camion.columna)
-        #         veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-        #         continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+            if target_camion:
+                veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+                veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                continue  # Ya tiene objetivo, pasamos al siguiente vehículo
 
-        # elif isinstance(veh, moto) and veh.equipo == "Azul" and motos_rojas:
-        #     min_dist = float('inf')
-        #     target_moto_roja = None
-        #     for mr in motos_rojas:
-        #         dist = abs(mr.fila - veh.fila) + abs(mr.columna - veh.columna)
-        #         if dist < min_dist:
-        #             min_dist = dist
-        #             target_moto_roja = mr
+        elif isinstance(veh, moto) and veh.equipo == "Azul" and motos_rojas:
+            min_dist = float('inf')
+            target_moto_roja = None
+            for mr in motos_rojas:
+                dist = abs(mr.fila - veh.fila) + abs(mr.columna - veh.columna)
+                if dist < min_dist:
+                    min_dist = dist
+                    target_moto_roja = mr
 
-        #     if target_moto_roja:
-        #         # 3. Asignar el objetivo y calcular el camino con A*
-        #         veh.objetivo_actual = (target_moto_roja.fila, target_moto_roja.columna)
-        #         veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-        #         continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+            if target_moto_roja:
+                # 3. Asignar el objetivo y calcular el camino con A*
+                veh.objetivo_actual = (target_moto_roja.fila, target_moto_roja.columna)
+                veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                continue  # Ya tiene objetivo, pasamos al siguiente vehículo
         
         
         if veh.objetivo_actual is None: 
             
             # Para motos rojas: prioridad atacar camiones azules
-            # if isinstance(veh, moto) and veh.equipo == "Rojo":
+            if isinstance(veh, moto) and veh.equipo == "Rojo":
 
-            #      if camiones_azules:
-            #          # Elegimos el camión más cercano usando Manhattan
-            #          min_dist = float('inf')
-            #          target_camion = None
-            #          for c in camiones_azules:
-            #              dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
-            #              if dist < min_dist:
-            #                  min_dist = dist
-            #                  target_camion = c
+                if camiones_azules:
+                    # Elegimos el camión más cercano usando Manhattan
+                    min_dist = float('inf')
+                    target_camion = None
+                    for c in camiones_azules:
+                        dist = abs(c.fila - veh.fila) + abs(c.columna - veh.columna)
+                        if dist < min_dist:
+                            min_dist = dist
+                            target_camion = c
 
-            #          if target_camion:
-            #              veh.objetivo_actual = (target_camion.fila, target_camion.columna)
-            #              veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-            #              continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+                    if target_camion:
+                        veh.objetivo_actual = (target_camion.fila, target_camion.columna)
+                        veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                        continue  # Ya tiene objetivo, pasamos al siguiente vehículo
             
-            # if isinstance(veh, moto) and veh.equipo == "Azul" and motos_rojas:
-            #     min_dist = float('inf')
-            #     target_moto_roja = None
-            #     for mr in motos_rojas:
-            #         dist = abs(mr.fila - veh.fila) + abs(mr.columna - veh.columna)
-            #         if dist < min_dist:
-            #             min_dist = dist
-            #             target_moto_roja = mr
+            if isinstance(veh, moto) and veh.equipo == "Azul" and motos_rojas:
+                min_dist = float('inf')
+                target_moto_roja = None
+                for mr in motos_rojas:
+                    dist = abs(mr.fila - veh.fila) + abs(mr.columna - veh.columna)
+                    if dist < min_dist:
+                        min_dist = dist
+                        target_moto_roja = mr
 
-            #     if target_moto_roja:
-            #         # 3. Asignar el objetivo y calcular el camino con A*
-            #         veh.objetivo_actual = (target_moto_roja.fila, target_moto_roja.columna)
-            #         veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
-            #         continue  # Ya tiene objetivo, pasamos al siguiente vehículo
+                if target_moto_roja:
+                    # 3. Asignar el objetivo y calcular el camino con A*
+                    veh.objetivo_actual = (target_moto_roja.fila, target_moto_roja.columna)
+                    veh.calcular_camino(mmanager.grid_maestra, veh.objetivo_actual)
+                    continue  # Ya tiene objetivo, pasamos al siguiente vehículo
 
             # Solo busca si el cooldown terminó Y no está volviendo a base.
             current_cooldown = veh.search_cooldown if hasattr(veh, 'search_cooldown') else 0
             can_search = current_cooldown == 0
-             
+            
             if can_search:
 
                 if veh.viajesActuales > 0:
@@ -237,7 +237,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                         mmanager.grid_maestra[veh.fila][veh.columna] = 0
                         if entity in mmanager.entities:
                             mmanager.entities.remove(entity)    
-                        
+                        veh.recursos.append(entity)
                         veh.liberar_recurso(mmanager.grid_maestra)
                         veh.objetivo_actual = None
                         if veh.viajesActuales == 0:
