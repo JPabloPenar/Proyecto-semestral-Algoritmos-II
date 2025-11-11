@@ -5,8 +5,13 @@ from map_manager import MapManager
 from mines import Mina, MinaT1, MinaT2, MinaG1
 from resources import Recurso, Persona
 from vehicles import jeep, moto, camion, auto
+from datetime import datetime
+
+# --- CAMBIO IMPORTANTE: Importar tkinter y filedialog ---
+# ESTO REQUIERE LA INSTALACIÓN DEL PAQUETE DE SISTEMA 'python3-tk'
 import tkinter as tk
 from tkinter import filedialog
+# --------------------------------------------------------
 
 # IMPORTAR el nuevo módulo de lógica del juego
 from game_engine import update_simulation, update_and_get_next_state 
@@ -247,46 +252,39 @@ def draw_entities(surface, mmanager):
         pygame.draw.polygon(surface, COLOR_MINA_MOVIL, puntos)
         pygame.draw.polygon(surface, NEGRO, puntos, 1) # Borde negro
 
-def _load_saved_game_dialog(mmanager):
-    """Abre un diálogo nativo de selección de archivos y carga la partida seleccionada."""
-    
-    # 1. Esconder la ventana de Pygame temporalmente
-    pygame.display.iconify()
-    
-    # 2. Inicializar Tkinter (Necesario para el diálogo)
-    root = tk.Tk()
-    root.withdraw() # Esconder la ventana principal de Tkinter
-    
-    # Asegurar que el directorio de partidas exista
-    if not os.path.exists(mmanager.partida_dir):
-        os.makedirs(mmanager.partida_dir, exist_ok=True)
 
+# --- NUEVA FUNCIÓN TKINTER (Implementación de la ventana nativa) ---
+def _open_native_file_dialog():
+    """Abre un diálogo nativo del sistema operativo para seleccionar un archivo."""
+
+    # 1. Inicializar Tkinter (ocultando la ventana principal innecesaria)
+    root = tk.Tk()
+    root.withdraw() # Oculta la ventana raíz de Tkinter
+
+    # 2. Definir los filtros de archivo
+    file_types = [
+        ('Partidas Guardadas', '*.partida'),
+        ('Todos los archivos', '*.*')
+    ]
+
+    # 3. Mostrar el diálogo de apertura
     try:
-        # Abrir el diálogo de selección de archivos
-        filename = filedialog.askopenfilename(
-            initialdir=os.path.abspath(mmanager.partida_dir),
+        # La función askopenfilename devuelve la ruta completa del archivo seleccionado o una cadena vacía si se cancela.
+        filepath = filedialog.askopenfilename(
+            initialdir=MapManager().partida_dir, # Directorio inicial: 'partida_saves'
             title="Seleccionar Partida Guardada",
-            filetypes=(("Archivos de Partida", "*.partida"), ("Todos los archivos", "*.*"))
+            filetypes=file_types
         )
-        
-        # 3. Si se seleccionó un archivo
-        if filename:
-            # Obtener solo el nombre del archivo del path completo
-            selected_filename = os.path.basename(filename) 
-            
-            if mmanager.cargar_partida_inicial(selected_filename):
-                print(f"[CARGA EXITOSA] Partida '{selected_filename}' cargada. Lista para simular.")
-                return True
-            
     except Exception as e:
-        print(f"[ERROR DE CARGA] No se pudo abrir el diálogo o cargar la partida: {e}")
-        
+        print(f"Error al abrir el diálogo de archivos: {e}")
+        filepath = ""
     finally:
-        # 4. Restaurar la ventana de Pygame
-        root.destroy()
-        pygame.display.uniconify()
+        root.destroy() # Limpiar la instancia de Tkinter
         
-    return False
+    # Extraer solo el nombre del archivo de la ruta completa
+    filename = os.path.basename(filepath)
+    return filename
+# -----------------------------------------------------
 
 # --- INICIALIZACION DEL MOTOR DE JUEGO ---
 ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
@@ -307,6 +305,7 @@ def main_loop():
     
     # Inicialice el contador de frames para controlar el tick de la lógica
     frame_counter = 0 
+    mensaje_simulacion_mostrado = False
     
     mmanager.distribute_entities() # Inicialización forzada de minas/recursos al inicio
     mmanager.guardar_estado_historial() # Guardamos el estado inicial
@@ -329,15 +328,30 @@ def main_loop():
                     # 1. VERIFICAR SI LA TECLA MODIFICADORA ESTÁ PRESIONADA
                     teclas = pygame.key.get_pressed()
                     
-                    # Si Shift O Ctrl están presionados, intentamos cargar
+                    # Si Shift O Ctrl están presionados, intentamos cargar usando el diálogo nativo
                     if teclas[pygame.K_LSHIFT] or teclas[pygame.K_RSHIFT] or teclas[pygame.K_LCTRL] or teclas[pygame.K_RCTRL]:
-                        print("\n[MODO CARGA ACTIVADO] Buscando partidas guardadas...")
                         
-                        # Si la carga es exitosa, necesitamos sincronizar la flota
-                        if _load_saved_game_dialog(mmanager):
-                            # Sincronizamos la flota total del juego con la flota cargada
-                            flota_total = mmanager.vehicles
-                            SIMULATION_STATE = "INITIALIZED"
+                        if SIMULATION_STATE == "PLAYING":
+                            print("La simulación debe estar detenida para cargar una partida.")
+                            continue
+
+                        print("\n[MODO CARGA ACTIVADO] Abriendo diálogo de archivos nativo...")
+                        
+                        # Llamamos a la función que abre el diálogo nativo
+                        selected_filename = _open_native_file_dialog()
+                        
+                        if selected_filename:
+                            # Sincronizamos la flota si la carga es exitosa
+                            if mmanager.cargar_partida_inicial(selected_filename):
+                                flota_total = mmanager.vehicles
+                                SIMULATION_STATE = "INITIALIZED"
+                                print("[CARGA EXITOSA] Partida cargada y lista para reanudar.")
+                            else:
+                                print("[CARGA FALLIDA] El archivo seleccionado no se pudo cargar.")
+
+                        else:
+                            print("[CARGA CANCELADA] No se seleccionó ningún archivo.")
+                            
                         continue # Salimos del manejo del botón para no ejecutar la distribución
 
                     mmanager.reiniciar_puntajes()
@@ -420,14 +434,19 @@ def main_loop():
                     else:
                         
                         # **LLAMA a la función segregada para avanzar un tick**
-                        mmanager, SIMULATION_STATE,_ = update_and_get_next_state(mmanager, flota_total)
+                        mmanager, _, resultado_tick = update_and_get_next_state(mmanager, flota_total)
                         
                         mmanager.guardar_estado_historial()
                         # Sincronizar la flota con el motor actualizado
                         flota_total = mmanager.vehicles 
                         
+                        if resultado_tick == "SIMULATION_ENDED":
+                            SIMULATION_STATE = "TERMINADO"
+                            print("[SIMULACIÓN TERMINADA]")
+                            
                         print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
-
+                                                                
+        
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
             
@@ -452,21 +471,8 @@ def main_loop():
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
             # --------------------------------------
-                                                                
         
-        # # --- Verificar condiciones de fin de simulación ---
-        # if SIMULATION_STATE != "TERMINADO":
-        #     if mmanager.check_condiciones_parada():
-        #         if not mensaje_simulacion_mostrado:
-        #             SIMULATION_STATE = "TERMINADO"
-        #             print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
-        #             if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
-        #                 print("[GANADOR] Ha ganado el equipo rojo.")
-        #             else:
-        #                 print("[GANADOR] Ha ganado el equipo azul")
-        #             mensaje_simulacion_mostrado = True
-        
-        # 3. Dibujo (Esta sección se mantiene igual)
+        # 3. Dibujo
         ventana.fill(BLANCO)
 
         # Dibujar Bases y Terreno
