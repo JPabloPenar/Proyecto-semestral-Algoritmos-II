@@ -5,8 +5,69 @@ from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurs
 from vehicles import vehicle
 import pickle
 import os
+import json
+from datetime import datetime
 
 class MapManager:
+
+    def _guardar_resultado_partida(self, resultado, nombre_archivo="match_history.json"):
+        """Guarda los puntajes finales de la partida en un archivo de historial."""
+        
+        # Creamos el registro de la partida
+        registro_partida = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "time_instance_final": self.time_instance,
+            "puntaje_rojo": self.puntajes['Rojo'],
+            "puntaje_azul": self.puntajes['Azul'],
+            "resultado": resultado
+        }
+        
+        # Cargar el historial existente
+        historial = []
+        try:
+            if os.path.exists(nombre_archivo):
+                with open(nombre_archivo, 'r') as f:
+                    historial = json.load(f)
+        except json.JSONDecodeError:
+            print(f"Advertencia: El archivo {nombre_archivo} está corrupto o vacío. Se creará uno nuevo.")
+        
+        # Añadir el nuevo registro y guardar
+        historial.append(registro_partida)
+        
+        try:
+            with open(nombre_archivo, 'w') as f:
+                json.dump(historial, f, indent=4)
+            print(f"Resultado de la partida guardado en {nombre_archivo}.")
+        except Exception as e:
+            print(f"Error al guardar el historial de partidas: {e}")
+
+    def get_victorias_historicas(self, nombre_archivo="match_history.json") -> dict:
+        """Lee el archivo de historial y devuelve el conteo total de victorias."""
+        
+        victorias = {'Rojo': 0, 'Azul': 0, 'Empates': 0}
+        
+        try:
+            if not os.path.exists(nombre_archivo):
+                return victorias # Devuelve 0, 0 si el archivo no existe
+                
+            with open(nombre_archivo, 'r') as f:
+                historial = json.load(f)
+                
+            for registro in historial:
+                resultado = registro.get("resultado", "")
+                if "Rojo" in resultado:
+                    victorias['Rojo'] += 1
+                elif "Azul" in resultado:
+                    victorias['Azul'] += 1
+                elif "Empate" in resultado:
+                    victorias['Empates'] += 1
+                    
+        except json.JSONDecodeError:
+            print(f"Advertencia: El archivo {nombre_archivo} está corrupto. El historial de victorias no será cargado.")
+        except Exception as e:
+            print(f"Error al leer el historial de partidas: {e}")
+            
+        return victorias
 
     # --- METODOS DE MANEJO DE ESTADOS DE JUEGO ---
     # Serializa y guarda el estado actual del MapManager en un archivo.

@@ -1,0 +1,16 @@
+[
+    {
+        "timestamp": "2025-11-11 18:16:14",
+        "time_instance_final": 1280,
+        "puntaje_rojo": 640,
+        "puntaje_azul": 640,
+        "resultado": "Empate"
+    },
+    {
+        "timestamp": "2025-11-11 18:27:54",
+        "time_instance_final": 937,
+        "puntaje_rojo": 670,
+        "puntaje_azul": 680,
+        "resultado": "Ganador: Equipo Azul"
+    }
+]

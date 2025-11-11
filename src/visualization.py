@@ -381,26 +381,33 @@ def main_loop():
             if frame_counter >= GAME_TICK_RATE:
                 
                 # **LLAMA a la función segregada para avanzar un tick**
-                update_simulation(mmanager, flota_total)
+                resultado_tick = update_simulation(mmanager, flota_total)
 
                 mmanager.guardar_estado_historial()
+
+                if resultado_tick == "SIMULATION_ENDED":
+                    SIMULATION_STATE = "TERMINADO"
+                    if not mensaje_simulacion_mostrado:
+                        # La lógica de guardar ya está en game_engine.py
+                        print("[SIMULACIÓN TERMINADA]")
+                        mensaje_simulacion_mostrado = True
                 
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
             # --------------------------------------
                                                                 
         
-        # --- Verificar condiciones de fin de simulación ---
-        if SIMULATION_STATE != "TERMINADO":
-            if mmanager.check_condiciones_parada():
-                if not mensaje_simulacion_mostrado:
-                    SIMULATION_STATE = "TERMINADO"
-                    print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
-                    if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
-                        print("[GANADOR] Ha ganado el equipo rojo.")
-                    else:
-                        print("[GANADOR] Ha ganado el equipo azul")
-                    mensaje_simulacion_mostrado = True
+        # # --- Verificar condiciones de fin de simulación ---
+        # if SIMULATION_STATE != "TERMINADO":
+        #     if mmanager.check_condiciones_parada():
+        #         if not mensaje_simulacion_mostrado:
+        #             SIMULATION_STATE = "TERMINADO"
+        #             print("[SIMULACIÓN TERMINADA] No quedan recursos o todos los vehículos de un equipo están explotados.")
+        #             if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
+        #                 print("[GANADOR] Ha ganado el equipo rojo.")
+        #             else:
+        #                 print("[GANADOR] Ha ganado el equipo azul")
+        #             mensaje_simulacion_mostrado = True
         
         # 3. Dibujo (Esta sección se mantiene igual)
         ventana.fill(BLANCO)
@@ -459,6 +466,36 @@ def main_loop():
 
         texto_azul = fuente_puntajes.render(f"Azul: {mmanager.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
         ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
+
+        # --- Mostrar el Historial de Victorias ---
+        victorias_historicas = mmanager.get_victorias_historicas()
+        
+        # Posición para el historial (un poco más arriba)
+        HISTORICO_X_ROJO = PUNTAJES_X_ROJO + 150 
+        HISTORICO_X_AZUL = PUNTAJES_X_AZUL - 100
+        fuente_historico = pygame.font.Font(None, 20) # Fuente más pequeña para no sobrecargar
+        
+        # Texto de Victorias Rojas
+        texto_hist_rojo = fuente_historico.render(f"Victorias: {victorias_historicas['Rojo']}", True, COLOR_ROJO_EQUIPO)
+        # Centrar bajo el puntaje
+        ventana.blit(texto_hist_rojo, (HISTORICO_X_ROJO, PUNTAJES_Y_ROJO))
+        
+        # Texto de Victorias Azules
+        texto_hist_azul = fuente_historico.render(f"Victorias: {victorias_historicas['Azul']}", True, COLOR_AZUL_EQUIPO)
+        # Centrar bajo el puntaje
+        ventana.blit(texto_hist_azul, (HISTORICO_X_AZUL, PUNTAJES_Y_AZUL))
+
+        HISTORICO_Y_EMPATES = PUNTAJES_Y_ROJO 
+        x_centro_terreno = rect_terreno.left + ANCHO_TERRENO / 2
+        
+        texto_hist_empates = fuente_historico.render(f"Empates: {victorias_historicas['Empates']}", True, NEGRO)
+        
+        # Dibujar en el centro
+        ventana.blit(
+            texto_hist_empates, 
+            (x_centro_terreno - texto_hist_empates.get_width() // 2, HISTORICO_Y_EMPATES)
+        )
+
         # 4. Actualizar la Pantalla
         pygame.display.flip()
         reloj.tick(SIMULATION_FPS)
