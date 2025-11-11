@@ -33,7 +33,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
             mmanager._marcar_vehiculo(veh, valor=0) 
             veh.mover_por_camino()
             
-            # --- CORRECCIÓN DE COLISIÓN DE MINAS (Chequeo ANTES de marcar) ---
             collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and collision_type.startswith("mina"):
@@ -130,17 +129,19 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             mmanager.entities.remove(entity)    
                         
                         veh.objetivo_actual = None
-                        veh.volver_a_base(mmanager.grid_maestra)
+                        if veh.viajesActuales == 0:
+                            veh.volver_a_base(mmanager.grid_maestra)
 
                 
                 elif collision_type == "vehiculo":
-                    mmanager._marcar_vehiculo(veh, valor=0)
-                    veh.explotar()
-                    veh.camino = []
-                    mmanager._marcar_vehiculo(entity, valor=0)
-                    entity.explotar()
-                    entity.camino = []
-                                                        
+                    if veh.equipo != entity.equipo:
+                        mmanager._marcar_vehiculo(veh, valor=0)
+                        veh.explotar()
+                        veh.camino = []
+                        mmanager._marcar_vehiculo(entity, valor=0)
+                        entity.explotar()
+                        entity.camino = []
+                                                            
 
     return
 
