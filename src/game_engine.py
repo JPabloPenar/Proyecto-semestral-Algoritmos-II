@@ -163,6 +163,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                         if entity in mmanager.entities:
                             mmanager.entities.remove(entity)    
                         
+                        veh.liberar_recurso(mmanager.grid_maestra)
                         veh.objetivo_actual = None
                         if veh.viajesActuales == 0:
                             veh.volver_a_base(mmanager.grid_maestra)
