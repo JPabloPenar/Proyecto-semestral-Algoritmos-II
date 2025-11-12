@@ -1,5 +1,5 @@
-from vehicles import moto, camion, auto
-from resources import Recurso
+from .vehicles import moto, camion, auto
+from .resources import Recurso
 
 #*
 # ESTRATEGIA EQUIPO AZUL

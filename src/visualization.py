@@ -1,11 +1,11 @@
 import pygame
 import sys
 import os
-from map_manager import MapManager 
-from mines import Mina, MinaT1, MinaT2, MinaG1
-from resources import Recurso, Persona
-from vehicles import jeep, moto, camion, auto
-from game_engine import update_simulation, update_and_get_next_state 
+from .map_manager import MapManager 
+from .mines import Mina, MinaT1, MinaT2, MinaG1
+from .resources import Recurso, Persona
+from .vehicles import jeep, moto, camion, auto
+from .game_engine import update_simulation, update_and_get_next_state 
 
 # --- Configuración y Constantes ---
 pygame.init()
@@ -456,6 +456,3 @@ def main_loop():
     # --- FINALIZACIÓN ---
     pygame.quit()
     sys.exit()
-
-if __name__ == "__main__":
-    main_loop()

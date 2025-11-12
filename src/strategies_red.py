@@ -1,5 +1,5 @@
-from vehicles import camion, moto, auto, jeep
-from resources import Recurso
+from .vehicles import camion, moto, auto, jeep
+from .resources import Recurso
 
 #*
 # ESTRATEGIA EQUIPO ROJO

@@ -1,8 +1,8 @@
-from map_manager import MapManager 
-from resources import Persona, Recurso 
-from vehicles import moto, camion
-from strategies_red import moto_chocadora, camion_asustadizo, auto_asesino
-from strategies_blue import moto_defensora, escape_camion, auto_defensor
+from .map_manager import MapManager 
+from .resources import Persona, Recurso 
+from .vehicles import moto, camion
+from .strategies_red import moto_chocadora, camion_asustadizo, auto_asesino
+from .strategies_blue import moto_defensora, escape_camion, auto_defensor
 
 BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130

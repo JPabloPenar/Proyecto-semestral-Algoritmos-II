@@ -1,8 +1,8 @@
 # vehicles.py (OPTIMIZADO CON A-STAR Y SIN COPIA DE GRID)
 
 # Importamos a_star en lugar de bfs
-from pathfinding import a_star, bfs_multiple_destino
-from resources import Persona, Recurso
+from .pathfinding import a_star, bfs_multiple_destino
+from .resources import Persona, Recurso
 import math 
 
 # Atributos de map_manager

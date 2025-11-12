@@ -1,8 +1,8 @@
 import random
 import math
-from mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
-from resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
-from vehicles import vehicle
+from .mines import MinaO1, MinaO2, MinaT1, MinaT2, MinaG1, Mina
+from .resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recurso
+from .vehicles import vehicle
 import pickle
 import os
 
@@ -28,7 +28,7 @@ class MapManager:
 
         try:
             if not os.path.exists(filename):
-                print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
+                #print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
                 return None
             
             # acceder al archivo con permisos de donde rb = read binary
