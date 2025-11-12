@@ -19,5 +19,19 @@
         "puntaje_rojo": 615,
         "puntaje_azul": 735,
         "resultado": "Ganador: Equipo Azul"
+    },
+    {
+        "timestamp": "2025-11-11 20:16:22",
+        "time_instance_final": 989,
+        "puntaje_rojo": 435,
+        "puntaje_azul": 805,
+        "resultado": "Ganador: Equipo Azul"
+    },
+    {
+        "timestamp": "2025-11-11 20:19:24",
+        "time_instance_final": 1025,
+        "puntaje_rojo": 510,
+        "puntaje_azul": 740,
+        "resultado": "Ganador: Equipo Azul"
     }
 ]

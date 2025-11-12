@@ -455,19 +455,28 @@ def main_loop():
             
             # Solo ejecuta la simulación si se alcanza el ratio deseado
             if frame_counter >= GAME_TICK_RATE:
-                
-                # **LLAMA a la función segregada para avanzar un tick**
-                resultado_tick = update_simulation(mmanager, flota_total)
 
-                mmanager.guardar_estado_historial()
+                if mmanager.current_history_index < len(mmanager.history) - 1:
 
-                if resultado_tick == "SIMULATION_ENDED":
-                    SIMULATION_STATE = "TERMINADO"
-                    if not mensaje_simulacion_mostrado:
-                        # La lógica de guardar ya está en game_engine.py
-                        print("[SIMULACIÓN TERMINADA]")
-                        mensaje_simulacion_mostrado = True
-                
+                    if mmanager.load_next_state_from_history():
+                        # El objeto mmanager se ha modificado in-place
+                        flota_total = mmanager.vehicles # Sincronizar la flota
+
+                        print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
+
+                else:
+
+                    resultado_tick = update_simulation(mmanager, flota_total)
+
+                    mmanager.guardar_estado_historial()
+
+                    if resultado_tick == "SIMULATION_ENDED":
+                        SIMULATION_STATE = "TERMINADO"
+                        if not mensaje_simulacion_mostrado:
+                            # La lógica de guardar ya está en game_engine.py
+                            print("[SIMULACIÓN TERMINADA]")
+                            mensaje_simulacion_mostrado = True
+                        
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
             # --------------------------------------

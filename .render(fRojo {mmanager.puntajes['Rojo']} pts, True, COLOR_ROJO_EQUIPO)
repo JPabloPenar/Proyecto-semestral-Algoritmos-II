@@ -1,0 +1,36 @@
+[33m9b87347[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32ma-star[m[33m, [m[1;31morigin/a-star[m[33m)[m algunas cosas de funcionalidades_de_movimiento arregladas + A* para pathfinding
+[33mee0e5c2[m[33m ([m[1;31morigin/funcionalidades_de_movimiento[m[33m, [m[1;32mfuncionalidades_de_movimiento[m[33m)[m Cambios dibujos, eventlog, colisiones, etc
+[33mce31c20[m optimización bfs
+[33m3be2ba0[m nuevas implementaciones
+[33m24071c7[m pickle añadido a gitignore
+[33m56fd8ae[m nueva distribución de archivos
+[33m1e991b1[m Merge branch 'colisiones_mapa'
+[33mfe4467f[m gitignore
+[33mffa1976[m[33m ([m[1;31morigin/colisiones_mapa[m[33m, [m[1;32mcolisiones_mapa[m[33m)[m radio de las minas en matriz
+[33m59070a6[m cambio lógica veh
+[33m8bdf0e4[m botones y guardado de mapa implementado
+[33mcd6b853[m ayuda porfa
+[33m54baf59[m pickle, next y prev
+[33m6f89bb5[m colisiones de vehiculos
+[33mb711c40[m[33m ([m[1;32mmain[m[33m)[m ubicar cosas en grid, colisiones solucionadas (casi)
+[33m0689855[m cambio de sistema de archivos
+[33m793967e[m Solucion de algunos problemas
+[33m0845fb4[m Primer cambio de pixeles a grid
+[33m164ba68[m movimiento de autos frame por frame
+[33m25754ed[m game engine
+[33m9e1b22e[m merge de las dos ramas en main
+[33m2cc832a[m Merge pull request
+[33m6f9d979[m Hago merge de los cambios del juampi a esta rama.
+[33m0b48e21[m enlace entre interfaz y clase vehículo
+[33mfb6c250[m Nuevos atributos en la clase de vehículos. Nuevo script PathFinding que tiene el algoritmo BFS para llegar a los objetivos y función de actualizar las minas que se mueven.
+[33m878a740[m modif. constructor vehículos
+[33m87af6e7[m modificación clase vehículo
+[33m7549b12[m Clases de minas y recursos
+[33mb84a98e[m pygame
+[33m625ddbc[m clase vehículo
+[33med5df31[m Update README.md
+[33m090da85[m Update README.md
+[33m113720a[m Update README.md
+[33m3c4ce5e[m Primer commit
+[33mc8b4304[m Update README.md
+[33m94636f1[m Initial commit
