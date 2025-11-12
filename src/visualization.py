@@ -345,6 +345,10 @@ def main_loop():
                             if mmanager.cargar_partida_inicial(selected_filename):
                                 flota_total = mmanager.vehicles
                                 SIMULATION_STATE = "INITIALIZED"
+                                mmanager.current_history_index = 0
+                                if mmanager.history:
+                                    mmanager._load_state_from_bytes(mmanager.history[0])
+                                    flota_total = mmanager.vehicles
                                 print("[CARGA EXITOSA] Partida cargada y lista para reanudar.")
                             else:
                                 print("[CARGA FALLIDA] El archivo seleccionado no se pudo cargar.")
