@@ -133,13 +133,40 @@ class MapManager:
         """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
 
         if overwrite and self.current_filename:
+            base_dir = os.path.dirname(self.current_filename)
+            old_filename = os.path.basename(self.current_filename)
+
+            # Buscamos la primera parte del nombre (ej. 'ejecucion_20251112_')
+            name_parts = old_filename.split('_')
+            # Intentamos preservar el timestamp y el nombre base
+            if len(name_parts) >= 2: 
+                base_name = "_".join(name_parts[:-1]) # ej: 'ejecucion_20251112' o similar
+            else:
+                base_name = os.path.splitext(old_filename)[0] # Usa el nombre sin extensión
+
+            # Formamos el nuevo nombre con el tiempo y estado actual
+            new_filename_base = f"{base_name}_T{self.time_instance}_{current_sim_state}.partida"
+            new_filepath = os.path.join(base_dir, new_filename_base)
+            
+            # 3. Guardamos la ruta del nuevo archivo
+            self.current_filename = new_filepath
+            filename_to_save = new_filepath
+            
+            # 4. ELIMINAR EL ARCHIVO ANTIGUO
+            if os.path.exists(base_dir):
+                for f in os.listdir(base_dir):
+                    if f == old_filename:
+                        os.remove(os.path.join(base_dir, f))
+                        break
+            
             # Si se pide sobrescribir Y hay un nombre de archivo cargado, lo reutilizamos.
             filename = self.current_filename
         else:
             # Es una partida nueva, generamos un nombre de archivo único
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}.partida"
+            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}_{current_sim_state}.partida"
             filename = os.path.join(self.partida_dir, filename_base)
+            self.current_filename = filename
         
         self.current_filename = filename
 
@@ -148,10 +175,6 @@ class MapManager:
         # Crea la carpeta si no existe
         os.makedirs(self.partida_dir, exist_ok=True)
         
-
-        # NO VACIAR EL HISTORIAL. Guardar el objeto tal cual está después de la simulación.
-        # Esto incluye self.history con todos los pasos serializados.
-        
         try:
             with open(filename, 'wb') as file:
                 # Guardamos el objeto MapManager COMPLETO (Grid, Entidades, Vehículos, Historial, etc.)
@@ -159,10 +182,6 @@ class MapManager:
             print(f"Ejecución completa guardada: {filename}")
         except Exception as e:
             print(f"Error al guardar la ejecución completa: {e}")
-
-    # (La función original _guardar_partida_inicial, llamada en distribute_entities, debe ser eliminada
-    # o simplemente reemplazar el contenido con una llamada a guardar_estado_historial()
-    # si solo se quiere guardar el estado 0.)
     
 
     def _load_state_from_bytes(self, state_bytes):
