@@ -128,24 +128,31 @@ class MapManager:
         self.history.append(state_bytes)
         self.current_history_index = len(self.history) - 1
 
-    def _guardar_partida_inicial(self):
-        """Guarda el estado completo del MapManager en una nueva carpeta."""
+    def _guardar_ejecucion_completa(self):
+        """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
         
         # Crea la carpeta si no existe
         os.makedirs(self.partida_dir, exist_ok=True)
         
-        # Generar un nombre de archivo único basado en la hora
+        # Generar un nombre de archivo único basado en la hora y el tiempo final
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(self.partida_dir, f"partida_{timestamp}.partida")
+        filename = os.path.join(self.partida_dir, f"ejecucion_{timestamp}_T{self.time_instance}.partida")
+
+        # NO VACIAR EL HISTORIAL. Guardar el objeto tal cual está después de la simulación.
+        # Esto incluye self.history con todos los pasos serializados.
         
         try:
             with open(filename, 'wb') as file:
-                # Guardamos el objeto MapManager completo (Grid, Entidades, Vehículos, Puntajes 0, etc.)
+                # Guardamos el objeto MapManager COMPLETO (Grid, Entidades, Vehículos, Historial, etc.)
                 pickle.dump(self, file)
-            print(f"Partida inicial guardada: {filename}")
+            print(f"Ejecución completa guardada: {filename}")
         except Exception as e:
-            print(f"Error al guardar la partida inicial: {e}")
-        
+            print(f"Error al guardar la ejecución completa: {e}")
+
+    # (La función original _guardar_partida_inicial, llamada en distribute_entities, debe ser eliminada
+    # o simplemente reemplazar el contenido con una llamada a guardar_estado_historial()
+    # si solo se quiere guardar el estado 0.)
+    
 
     def _load_state_from_bytes(self, state_bytes):
         """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
@@ -219,21 +226,16 @@ class MapManager:
             # Reemplazamos todos los atributos del MapManager actual con los cargados
             self.__dict__.update(loaded_mmanager.__dict__)
             
-           
-            if self.history:
-                print("se guardo el historial")
-                self.current_history_index = 0
-                # Además, cargamos el estado inicial a partir de los bytes que ahora tenemos en la lista.
-                self._load_state_from_bytes(self.history[0])
-                self.time_instance = 0 # El primer estado es el instante 0
-            else:
-                # Si se cargó un archivo viejo sin historial, volvemos a la lógica de inicialización
-                self.current_history_index = -1
-                self.time_instance = 0
-                
-                print(f"Partida cargada exitosamente: {filename}")
-                return True
-                
+            # Limpiar el historial paso a paso de la partida anterior (ya que esta es nueva)
+
+            self.time_instance = 0
+            
+            # Guardamos este nuevo estado inicial en el historial paso a paso
+            self.guardar_estado_historial()
+            
+            print(f"Partida cargada exitosamente: {filename}")
+            return True
+            
         except Exception as e:
             print(f"Error al cargar la partida: {e}")
             return False
@@ -610,10 +612,7 @@ class MapManager:
         self.old_mobile_mine_col = self.mobile_mine.columna
         self._initial_placement_done = True
 
-        #self.guardar_estado_historial()
-        # Guardamos el estado inicial de nuestra partida 
-        # Sera usado para acceder al resto de estados de nuestra ejecucion
-        #self._guardar_partida_inicial()
+        self.guardar_estado_historial()
 
     
     def _marcar_area_mina(self, mina: Mina, valor=1):
