@@ -97,7 +97,7 @@ class vehicle:
         start = (self.fila, self.columna) 
         self.camino = a_star(grid, start, destino)
     
- 
+
     def mover_por_camino(self):
         """Movimiento del auto por la grid."""
         if not self.camino:
@@ -158,7 +158,6 @@ class vehicle:
         self.objetivo_actual = destino_grid
         
         self.calcular_camino(grid, destino_grid)
-   
 
     def buscar_recurso_mas_cercano(self, grid):
             """

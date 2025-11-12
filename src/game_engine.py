@@ -1,8 +1,8 @@
 from map_manager import MapManager 
 from resources import Persona, Recurso 
 from vehicles import moto, camion
-from strategies_red import moto_chocadora, camion_asustadizo
-from strategies_blue import moto_defensora, escape_camion
+from strategies_red import moto_chocadora, camion_asustadizo, auto_asesino
+from strategies_blue import moto_defensora, escape_camion, auto_defensor
 
 BASE1_MAX_COL = 29
 BASE2_MIN_COL = 130
@@ -24,10 +24,16 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         if v.equipo == "Rojo" and v.estado == "activo"
     ]
     
+    # ESTRATEGIA EQUIPO ROJO
     moto_chocadora(flota_roja, flota_azul, mmanager.grid_maestra)
-    moto_defensora(flota_roja, flota_azul, mmanager.grid_maestra)
     camion_asustadizo(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
+    auto_asesino(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
+    
+    #ESTRATEGIA EQUIPO AZUL
+    moto_defensora(flota_roja, flota_azul, mmanager.grid_maestra)
     escape_camion(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
+    auto_defensor(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
+    
     
     for veh in flota_total:
         

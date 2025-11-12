@@ -1,5 +1,15 @@
-from vehicles import moto, camion
+from vehicles import moto, camion, auto
 from resources import Recurso
+
+#*
+# ESTRATEGIA EQUIPO AZUL
+# 1. Las dos motos azules atacan a las dos motos rojas.
+# 2. Los camiones azules si detectan un vehículo enemigo a un radio
+# de 5 celdas, volverá a base a dejar siempre y cuando tenga recursos.
+# 3. Un auto azul perseguirá un auto rojo siempre que el auto azul no tenga
+# recursos y el auto rojo no esté en base.
+# *#
+
 
 def moto_defensora(flota_roja, flota_azul, grid):
     motos_azules = [v for v in flota_azul if isinstance(v, moto) and v.estado == "activo"]
@@ -61,3 +71,35 @@ def escape_camion(flota_roja, flota_azul, grid, mmanager):
             # Sólo si no tiene objetivo actual, lo mandamos a buscar
             if cam.objetivo_actual is None and not enemigo_cercano:
                 cam.buscar_recurso_mas_cercano(grid)
+
+def auto_defensor(flota_roja, flota_azul, grid, mmanager):
+    # Un solo auto azul a la vez persigue al auto rojo más cercano siempre que el auto azul no tenga recursos y el auto rojo no esté en base.
+    base_roja = {"min_col": 0, "max_col": 29, "min_row": 10, "max_row": 79}
+
+    # Filtrar autos azules activos
+    autos_azules = [v for v in flota_azul if isinstance(v, auto) and v.estado == "activo"]
+    if not autos_azules:
+        return
+
+    # Filtrar autos rojos activos
+    autos_rojos = [v for v in flota_roja if isinstance(v, auto) and v.estado == "activo" and not mmanager._en_base(v, base_roja)]
+    if not autos_rojos:
+        return
+    
+    # Elegimos un solo auto para atacar
+    
+    atacante = autos_azules[0]
+    
+    atacante.liberar_recurso(grid)
+    
+    # Buscar el auto rojo más cercano
+    fila_att, col_att = atacante.fila, atacante.columna
+    objetivo = min(autos_rojos, key=lambda j: abs(j.fila - fila_att) + abs(j.columna - col_att))
+
+    # Asignar objetivo y calcular camino
+    if atacante.recursos == []:
+        atacante.objetivo_actual = (objetivo.fila, objetivo.columna)
+        atacante.calcular_camino(grid, atacante.objetivo_actual)
+    
+    if not autos_rojos:
+        return

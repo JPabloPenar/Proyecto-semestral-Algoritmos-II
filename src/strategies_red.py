@@ -1,5 +1,14 @@
-from vehicles import camion, moto
+from vehicles import camion, moto, auto, jeep
 from resources import Recurso
+
+#*
+# ESTRATEGIA EQUIPO ROJO
+# 1. Atacar con las dos motos a los camiones intentando que exploten.
+# 2. Si los camiones detectan vehículos enemigos a un radio de 5 celdas,
+# volverán a base siempre y cuando tengan recursos agarrados.
+# 3. Un auto rojo a la vez perseguirá a un jeep azul enemigo siempre y cuando 
+# el auto rojo no tenga recursos y el jeep azul no esté en base.
+# *#
 
 def moto_chocadora(flota_roja, flota_azul, grid):
     camiones_azules = [v for v in flota_azul if isinstance(v, camion) and v.estado == "activo"]
@@ -58,7 +67,38 @@ def camion_asustadizo(flota_roja, flota_azul, grid, mmanager):
         
         # --- Si no hay enemigo y el camión está dentro del área de la base ---
         if (0 <= cam.columna <= BASE_COL_MAX) and (BASE_ROW_MIN <= cam.fila <= BASE_ROW_MAX):
-            
             # Sólo si no tiene objetivo actual, lo mandamos a buscar
             if cam.objetivo_actual is None and not enemigo_cercano:
                 cam.buscar_recurso_mas_cercano(grid)
+
+def auto_asesino(flota_roja, flota_azul, grid, mmanager):
+    # Un solo auto rojo a la vez persigue al jeep azul más cercano siempre que el auto no tenga recursos y el jeep azul no esté en base.
+    base_azul = {"min_col": 130, "max_col": 159, "min_row": 10, "max_row": 79}
+
+    # Filtrar autos rojos activos
+    autos_rojos = [v for v in flota_roja if isinstance(v, auto) and v.estado == "activo"]
+    if not autos_rojos:
+        return
+
+    # Filtrar jeeps azules activos
+    jeeps_azules = [v for v in flota_azul if isinstance(v, jeep) and v.estado == "activo" and not mmanager._en_base(v, base_azul)]
+    if not jeeps_azules:
+        return
+    
+    # Elegimos un solo auto para atacar
+    
+    atacante = autos_rojos[0]
+    
+    atacante.liberar_recurso(grid)
+    
+    # Buscar el jeep más cercano
+    fila_att, col_att = atacante.fila, atacante.columna
+    objetivo = min(jeeps_azules, key=lambda j: abs(j.fila - fila_att) + abs(j.columna - col_att))
+
+    # Asignar objetivo y calcular camino
+    if atacante.recursos == []:
+        atacante.objetivo_actual = (objetivo.fila, objetivo.columna)
+        atacante.calcular_camino(grid, atacante.objetivo_actual)
+    
+    if not jeeps_azules:
+        return
