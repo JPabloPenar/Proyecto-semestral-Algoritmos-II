@@ -159,15 +159,13 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         # **PASO CLAVE: Guardar el resultado en el historial de partidas**
         mmanager._guardar_resultado_partida(resultado_final)
 
-        mmanager._guardar_ejecucion_completa()
+        mmanager._saved_sim_state = "TERMINADO"
+        mmanager._guardar_ejecucion_completa(mmanager._saved_sim_state)
 
         # Retornar el resultado para ser usado por la función de visualización/control
         return "SIMULATION_ENDED"
 
     return ""
-                                                        
-
-    return
 
 
 def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:

@@ -128,8 +128,10 @@ class MapManager:
         self.history.append(state_bytes)
         self.current_history_index = len(self.history) - 1
 
-    def _guardar_ejecucion_completa(self):
+    def _guardar_ejecucion_completa(self, current_sim_state: str):
         """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
+
+        self._saved_sim_state = current_sim_state
         
         # Crea la carpeta si no existe
         os.makedirs(self.partida_dir, exist_ok=True)
@@ -226,19 +228,23 @@ class MapManager:
             # Reemplazamos todos los atributos del MapManager actual con los cargados
             self.__dict__.update(loaded_mmanager.__dict__)
             
-            # Limpiar el historial paso a paso de la partida anterior (ya que esta es nueva)
-
-            self.time_instance = 0
-            
             # Guardamos este nuevo estado inicial en el historial paso a paso
             self.guardar_estado_historial()
             
             print(f"Partida cargada exitosamente: {filename}")
-            return True
+
+            if hasattr(self, '_saved_sim_state'):
+                saved_state = self._saved_sim_state
+                # Opcional: Eliminarlo después de usar para mantener limpio el MapManager
+                del self._saved_sim_state 
+            else:
+                saved_state = "TERMINADO"
+
+            return True, saved_state
             
         except Exception as e:
             print(f"Error al cargar la partida: {e}")
-            return False
+            return False, ""
     
 
     # --- VARIABLES DE UNIDADES Y MAPA ---
@@ -334,6 +340,8 @@ class MapManager:
         # Atributos para los puntajes de los equipos
         self.puntajes = {'Rojo': 0, 'Azul': 0}
         self.recursos_restantes = 0
+
+        self._saved_sim_state = "INITIALIZED"
 
 
     def _get_random_pos(self):
