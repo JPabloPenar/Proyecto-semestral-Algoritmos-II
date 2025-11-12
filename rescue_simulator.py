@@ -31,5 +31,4 @@ def initialize_simulation(load_partida_filename: str = None) -> MapManager:
 
 if __name__ == '__main__':
     manager = initialize_simulation()
-    print(f"Simulación lista. Vehículos activos: {len(manager.vehicles)}")
     main_loop()

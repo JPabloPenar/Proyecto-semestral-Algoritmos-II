@@ -176,7 +176,33 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar() # Cambia estado a 'inactivo'
                     entity.camino = []
-    return
+
+    if mmanager.check_condiciones_parada():
+
+        # Esto solo se ejecuta si check_condiciones_parada() devuelve True
+        # Calcular el resultado final (mensaje)
+
+
+        if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul']:
+            resultado_final = "Ganador: Equipo Rojo"
+
+        elif mmanager.puntajes['Azul'] > mmanager.puntajes['Rojo']:
+            resultado_final = "Ganador: Equipo Azul"
+
+        else:
+            resultado_final = "Empate"
+
+
+        # **PASO CLAVE: Guardar el resultado en el historial de partidas**
+        mmanager._guardar_resultado_partida(resultado_final)
+
+        mmanager._saved_sim_state = "TERMINADO"
+        mmanager._guardar_ejecucion_completa(mmanager._saved_sim_state, overwrite = True)
+
+        # Retornar el resultado para ser usado por la función de visualización/control
+        return "SIMULATION_ENDED"
+    
+    return ""
 
 
 def update_and_get_next_state(mmanager: MapManager, flota_total: list) -> tuple[MapManager, str, str]:

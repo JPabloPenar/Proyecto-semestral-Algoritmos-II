@@ -7,6 +7,9 @@ from .resources import Recurso, Persona
 from .vehicles import jeep, moto, camion, auto
 from .game_engine import update_simulation, update_and_get_next_state 
 
+import tkinter as tk
+from tkinter import filedialog
+
 # --- Configuración y Constantes ---
 pygame.init()
 CELL_SIZE = 5
@@ -242,6 +245,38 @@ def draw_entities(surface, mmanager):
         pygame.draw.polygon(surface, NEGRO, puntos, 1) # Borde negro
 
 
+def _open_native_file_dialog():
+    """Abre un diálogo nativo del sistema operativo para seleccionar un archivo."""
+
+    # 1. Inicializar Tkinter (ocultando la ventana principal innecesaria)
+    root = tk.Tk()
+    root.withdraw() # Oculta la ventana raíz de Tkinter
+
+    # 2. Definir los filtros de archivo
+    file_types = [
+        ('Partidas Guardadas', '*.partida'),
+        ('Todos los archivos', '*.*')
+    ]
+
+    # 3. Mostrar el diálogo de apertura
+    try:
+        # La función askopenfilename devuelve la ruta completa del archivo seleccionado o una cadena vacía si se cancela.
+        filepath = filedialog.askopenfilename(
+            initialdir=MapManager().partida_dir, # Directorio inicial: 'partida_saves'
+            title="Seleccionar Partida Guardada",
+            filetypes=file_types
+        )
+    except Exception as e:
+        print(f"Error al abrir el diálogo de archivos: {e}")
+        filepath = ""
+    finally:
+        root.destroy() # Limpiar la instancia de Tkinter
+        
+    # Extraer solo el nombre del archivo de la ruta completa
+    filename = os.path.basename(filepath)
+    return filename
+
+
 # --- INICIALIZACION DEL MOTOR DE JUEGO ---
 ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
 
@@ -260,7 +295,8 @@ def main_loop():
     ejecutando = True
     
     # Contador de frames para controlar el tick de la lógica
-    frame_counter = 0 
+    frame_counter = 0
+    mensaje_simulacion_mostrado = False 
     
     mmanager.distribute_entities() # Inicialización forzada de minas/recursos al inicio
     mmanager.guardar_estado_historial() # Guardamos el estado inicial
@@ -279,10 +315,55 @@ def main_loop():
                 
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
+
+                    mmanager._saved_sim_state = SIMULATION_STATE
+                    
+                    if mmanager.time_instance != 0:
+                        mmanager._guardar_ejecucion_completa(SIMULATION_STATE, overwrite = True)
+
+                    # 1. VERIFICAR SI LA TECLA MODIFICADORA ESTÁ PRESIONADA
+                    teclas = pygame.key.get_pressed()
+                    
+                    # Si Shift O Ctrl están presionados, intentamos cargar usando el diálogo nativo
+                    if teclas[pygame.K_LSHIFT] or teclas[pygame.K_RSHIFT] or teclas[pygame.K_LCTRL] or teclas[pygame.K_RCTRL]:
+                        
+                        if SIMULATION_STATE == "PLAYING":
+                            print("La simulación debe estar detenida para cargar una partida.")
+                            continue
+
+                        print("\n[MODO CARGA ACTIVADO] Abriendo diálogo de archivos nativo...")
+                        
+                        # Llamamos a la función que abre el diálogo nativo
+                        selected_filename = _open_native_file_dialog()
+                        
+                        if selected_filename:
+                            # Sincronizamos la flota si la carga es exitosa
+                            carga_exitosa, saved_sim_state = mmanager.cargar_partida_inicial(selected_filename)
+                            if carga_exitosa:
+                                flota_total = mmanager.vehicles
+
+                                if saved_sim_state == "TERMINADO":
+                                    SIMULATION_STATE = "INITIALIZED"
+                                    mmanager.current_history_index = 0
+                                    mmanager._load_state_from_bytes(mmanager.history[0])
+
+
+                                elif saved_sim_state == "STOPPED":
+                                    mmanager.current_history_index = len(mmanager.history) - 1
+                                    mmanager._load_state_from_bytes(mmanager.history[-1])
+
+
+                        else:
+                            print("[CARGA CANCELADA] No se seleccionó ningún archivo.")
+                            
+                        continue # Salimos del manejo del botón para no ejecutar la distribución
+
                     mmanager.reiniciar_puntajes()
                     mensaje_simulacion_mostrado = False
                     # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
                     if SIMULATION_STATE != "PLAYING":
+                        mmanager.current_filename = None
+
                         # 1. Resetear y Reposicionar los vehículos
                         flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
                         flota_total = flota_base1 + flota_base2
@@ -308,7 +389,7 @@ def main_loop():
                             if veh.objetivo_actual is None and veh.viajesActuales > 0:
                                 veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
                         
-                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {mmanager.time_instance}).")
+                        
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN STOP
@@ -329,7 +410,7 @@ def main_loop():
 
                         if mmanager.load_previous_state_from_history():
                             flota_total = mmanager.vehicles # Sincronizar la flota
-                            print(f"[REPLAY] Retrocedido a Time Instance: {mmanager.time_instance}.")
+                            
 
                     # Si estamos al principio de la simulacion (no hay eventos anteriores)
                     elif mmanager.current_history_index == 0:
@@ -350,19 +431,19 @@ def main_loop():
                         if mmanager.load_next_state_from_history():
                             flota_total = mmanager.vehicles # Sincronizar la flota
 
-                            print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
+                            
                             
                     # Si no hay estado futuro, avanza la simulación un paso (TICK manual)
                     else:
                         
                         # Llama a la función segregada para avanzar un tick*
-                        mmanager, SIMULATION_STATE,_ = update_and_get_next_state(mmanager, flota_total)
+                        mmanager, SIMULATION_STATE, resultado_tick = update_and_get_next_state(mmanager, flota_total)
                         
                         mmanager.guardar_estado_historial()
                         # Sincronizar la flota con el motor actualizado
                         flota_total = mmanager.vehicles 
                         
-                        print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
+                        
 
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
@@ -371,11 +452,31 @@ def main_loop():
             # Solo ejecuta la simulación si se alcanza el ratio deseado
             if frame_counter >= GAME_TICK_RATE:
                 
-                # Llama a la función segregada para avanzar un tick*
-                update_simulation(mmanager, flota_total)
+                if mmanager.current_history_index < len(mmanager.history) - 1:
 
-                mmanager.guardar_estado_historial()
-                
+                    if mmanager.load_next_state_from_history():
+                        # El objeto mmanager se ha modificado in-place
+                        flota_total = mmanager.vehicles # Sincronizar la flota
+
+                else:
+
+                    resultado_tick = update_simulation(mmanager, flota_total)
+
+                    mmanager.guardar_estado_historial()
+
+                    if resultado_tick == "SIMULATION_ENDED":
+                        SIMULATION_STATE = "TERMINADO"
+                        if not mensaje_simulacion_mostrado:
+
+                            # La lógica de guardar ya está en game_engine.py
+                            print("[SIMULACIÓN TERMINADA]")
+                            mensaje_simulacion_mostrado = True
+
+                            
+                        
+                        print("[SIMULACIÓN TERMINADA]")
+                        mensaje_simulacion_mostrado = True
+                        
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
             # --------------------------------------
@@ -449,6 +550,35 @@ def main_loop():
 
         texto_azul = fuente_puntajes.render(f"Azul: {mmanager.puntajes['Azul']} pts", True, COLOR_AZUL_EQUIPO)
         ventana.blit(texto_azul, (PUNTAJES_X_AZUL, PUNTAJES_Y_AZUL))
+
+        victorias_historicas = mmanager.get_victorias_historicas()
+        
+        # Posición para el historial (un poco más arriba)
+        HISTORICO_X_ROJO = PUNTAJES_X_ROJO + 150 
+        HISTORICO_X_AZUL = PUNTAJES_X_AZUL - 100
+        fuente_historico = pygame.font.Font(None, 20) # Fuente más pequeña para no sobrecargar
+        
+        # Texto de Victorias Rojas
+        texto_hist_rojo = fuente_historico.render(f"Victorias: {victorias_historicas['Rojo']}", True, COLOR_ROJO_EQUIPO)
+        # Centrar bajo el puntaje
+        ventana.blit(texto_hist_rojo, (HISTORICO_X_ROJO, PUNTAJES_Y_ROJO))
+        
+        # Texto de Victorias Azules
+        texto_hist_azul = fuente_historico.render(f"Victorias: {victorias_historicas['Azul']}", True, COLOR_AZUL_EQUIPO)
+        # Centrar bajo el puntaje
+        ventana.blit(texto_hist_azul, (HISTORICO_X_AZUL, PUNTAJES_Y_AZUL))
+
+        HISTORICO_Y_EMPATES = PUNTAJES_Y_ROJO 
+        x_centro_terreno = rect_terreno.left + ANCHO_TERRENO / 2
+        
+        texto_hist_empates = fuente_historico.render(f"Empates: {victorias_historicas['Empates']}", True, NEGRO)
+        
+        # Dibujar en el centro
+        ventana.blit(
+            texto_hist_empates, 
+            (x_centro_terreno - texto_hist_empates.get_width() // 2, HISTORICO_Y_EMPATES)
+        )
+
         # 4. Actualizar la Pantalla
         pygame.display.flip()
         reloj.tick(SIMULATION_FPS)

@@ -5,8 +5,70 @@ from .resources import Persona, Ropa, Alimentos, Medicamentos, Armamentos, Recur
 from .vehicles import vehicle
 import pickle
 import os
+import json
+from datetime import datetime
 
 class MapManager:
+
+    def _guardar_resultado_partida(self, resultado, nombre_archivo="match_history.json"):
+        """Guarda los puntajes finales de la partida en un archivo de historial."""
+        
+        # Creamos el registro de la partida
+        registro_partida = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "time_instance_final": self.time_instance,
+            "puntaje_rojo": self.puntajes['Rojo'],
+            "puntaje_azul": self.puntajes['Azul'],
+            "resultado": resultado
+        }
+        
+        # Cargar el historial existente
+        historial = []
+        try:
+            if os.path.exists(nombre_archivo):
+                with open(nombre_archivo, 'r') as f:
+                    historial = json.load(f)
+        except json.JSONDecodeError:
+            print(f"Advertencia: El archivo {nombre_archivo} está corrupto o vacío. Se creará uno nuevo.")
+        
+        # Añadir el nuevo registro y guardar
+        historial.append(registro_partida)
+        
+        try:
+            with open(nombre_archivo, 'w') as f:
+                json.dump(historial, f, indent=4)
+            print(f"Resultado de la partida guardado en {nombre_archivo}.")
+        except Exception as e:
+            print(f"Error al guardar el historial de partidas: {e}")
+
+    def get_victorias_historicas(self, nombre_archivo="match_history.json") -> dict:
+        """Lee el archivo de historial y devuelve el conteo total de victorias."""
+        
+        victorias = {'Rojo': 0, 'Azul': 0, 'Empates': 0}
+        
+        try:
+            if not os.path.exists(nombre_archivo):
+                return victorias # Devuelve 0, 0 si el archivo no existe
+                
+            with open(nombre_archivo, 'r') as f:
+                historial = json.load(f)
+                
+            for registro in historial:
+                resultado = registro.get("resultado", "")
+                if "Rojo" in resultado:
+                    victorias['Rojo'] += 1
+                elif "Azul" in resultado:
+                    victorias['Azul'] += 1
+                elif "Empate" in resultado:
+                    victorias['Empates'] += 1
+                    
+        except json.JSONDecodeError:
+            print(f"Advertencia: El archivo {nombre_archivo} está corrupto. El historial de victorias no será cargado.")
+        except Exception as e:
+            print(f"Error al leer el historial de partidas: {e}")
+            
+        return victorias
+    
     # --- METODOS DE MANEJO DE ESTADOS DE JUEGO ---
     # Serializa y guarda el estado actual del MapManager en un archivo.
     def guardar_estado(self, filename="map_state.pickle"):
@@ -34,7 +96,8 @@ class MapManager:
             # acceder al archivo con permisos de donde rb = read binary
             with open(filename, 'rb') as file:
                 # Carga el objeto completo (incluyendo grid, entities, etc.)
-                return pickle.load(file) 
+                return pickle.load(file)
+
         except Exception as e:
             print(f"Error al cargar el estado: {e}")
             return None
@@ -66,15 +129,47 @@ class MapManager:
         self.history.append(state_bytes)
         self.current_history_index = len(self.history) - 1
 
+    def _guardar_ejecucion_completa(self, current_sim_state: str, overwrite=False):
+        """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
+
+        if overwrite and self.current_filename:
+            # Si se pide sobrescribir Y hay un nombre de archivo cargado, lo reutilizamos.
+            filename = self.current_filename
+
+        else:
+            # Es una partida nueva, generamos un nombre de archivo único
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}.partida"
+            filename = os.path.join(self.partida_dir, filename_base)
+
+        self.current_filename = filename
+        self._saved_sim_state = current_sim_state
+
+        # Crea la carpeta si no existe
+        os.makedirs(self.partida_dir, exist_ok=True)
+
+        try:
+            with open(filename, 'wb') as file:
+                # Guardamos el objeto MapManager COMPLETO (Grid, Entidades, Vehículos, Historial, etc.)
+                pickle.dump(self, file)
+            print(f"Ejecución completa guardada: {filename}")
+
+        except Exception as e:
+            print(f"Error al guardar la ejecución completa: {e}")
+    
+
+
     def _load_state_from_bytes(self, state_bytes):
         """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
         loaded_state = pickle.loads(state_bytes)
         
-        # Reemplazar los atributos
+        # Reemplazar los atributos (in-place, es más eficiente que deepcopy)
         for attr, value in loaded_state.__dict__.items():
             # Excluimos los atributos de control para que el historial se mantenga
             if attr not in ('history', 'current_history_index', 'base_dir'): 
                 setattr(self, attr, value)
+        #self._actualizar_grid_minas()
+
 
     def load_previous_state_from_history(self):
         """Decrementa el índice y deserializa el estado anterior si es posible."""
@@ -85,6 +180,7 @@ class MapManager:
             return True
         return False
     
+
     def load_next_state_from_history(self):
         """Incrementa el índice y deserializa el estado siguiente si es posible."""
         if self.current_history_index < len(self.history) - 1:
@@ -94,6 +190,7 @@ class MapManager:
             return True
         return False
 
+    
     # Borra todos los archivos .pickle de la carpeta de historial y reinicia el historial interno.
     def _limpiar_historial(self):
         
@@ -111,6 +208,56 @@ class MapManager:
         self.history = []
         self.current_history_index = -1
         self.time_instance = 0 # Reinicia el contador de tiempo
+
+    def listar_partidas_guardadas(self):
+        """Retorna una lista de nombres de archivos de partidas guardadas."""
+        if not os.path.exists(self.partida_dir):
+            return []
+        
+        # Filtra solo los archivos con la extensión .partida
+        return [f for f in os.listdir(self.partida_dir) if f.endswith('.partida')]
+
+    def cargar_partida_inicial(self, filename):
+        """Carga un estado de partida guardado y lo aplica al MapManager actual."""
+        filepath = os.path.join(self.partida_dir, filename)
+
+        self.current_filename = filepath
+
+        if self._saved_sim_state == "TERMINADO":
+            self.is_replay = True
+        
+        else:
+            self.is_replay = False
+        
+        if not os.path.exists(filepath):
+            print(f"Error: Archivo de partida '{filename}' no encontrado.")
+            return False
+            
+        try:
+            with open(filepath, 'rb') as file:
+                loaded_mmanager = pickle.load(file)
+            
+            # --- Aplica el estado cargado al objeto MapManager actual ---
+            # Reemplazamos todos los atributos del MapManager actual con los cargados
+            self.__dict__.update(loaded_mmanager.__dict__)
+            
+            # Guardamos este nuevo estado inicial en el historial paso a paso
+            self.guardar_estado_historial()
+            
+            print(f"Partida cargada exitosamente: {filename}")
+
+            if hasattr(self, '_saved_sim_state'):
+                saved_state = self._saved_sim_state
+                # Opcional: Eliminarlo después de usar para mantener limpio el MapManager
+                del self._saved_sim_state 
+            else:
+                saved_state = "TERMINADO"
+
+            return True, saved_state
+            
+        except Exception as e:
+            print(f"Error al cargar la partida: {e}")
+            return False, ""
 
     # --- VARIABLES DE UNIDADES Y MAPA ---
     CELL_SIZE = 5 
@@ -194,10 +341,16 @@ class MapManager:
         self.history = [] 
         self.current_history_index = -1
         self.base_dir = "map_history" # Carpeta para guardar los estados
+        self.partida_dir = "partida_saves"
         
         # Atributos para los puntajes de los equipos
         self.puntajes = {'Rojo': 0, 'Azul': 0}
         self.recursos_restantes = 0
+
+        self._saved_sim_state = "INITIALIZED"
+        self.is_replay = False
+
+        self.current_filename = None
 
     def _get_random_pos(self):
         """Genera una posición aleatoria de GRID (columna, fila) dentro del Terreno de Acción con margen."""
