@@ -277,15 +277,7 @@ def _open_native_file_dialog():
     return filename
 
 
-# --- INICIALIZACION DEL MOTOR DE JUEGO ---
-ENGINE_HISTORY_FILE = "map_history/state_0000.pickle"
-
-# Intenta cargar el estado inicial. Si falla o no existe, devuelve None.
-mmanager = MapManager.cargar_estado(ENGINE_HISTORY_FILE)
-
-# Si mmanager es None, significa que no se pudo cargar o no existía el archivo.
-if mmanager is None: 
-    mmanager = MapManager()
+mmanager = MapManager()
 
 mmanager.vehicles = flota_total
 

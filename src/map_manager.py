@@ -41,6 +41,7 @@ class MapManager:
         except Exception as e:
             print(f"Error al guardar el historial de partidas: {e}")
 
+
     def get_victorias_historicas(self, nombre_archivo="match_history.json") -> dict:
         """Lee el archivo de historial y devuelve el conteo total de victorias."""
         
@@ -70,38 +71,6 @@ class MapManager:
         return victorias
     
     # --- METODOS DE MANEJO DE ESTADOS DE JUEGO ---
-    # Serializa y guarda el estado actual del MapManager en un archivo.
-    def guardar_estado(self, filename="map_state.pickle"):
-
-        try:
-            # acceder al archivo con permisos de donde wb = write binary
-            with open(filename, 'wb') as file:
-
-                # Dump se encarga de serializar
-                pickle.dump(self, file)
-
-            return True
-        except Exception as e:
-            print(f"Error al guardar el estado: {e}")
-            return False
-        
-    #Carga y retorna un objeto MapManager desde un archivo serializado.
-    def cargar_estado(filename="map_state.pickle"):
-
-        try:
-            if not os.path.exists(filename):
-                #print(f"Advertencia: Archivo de estado '{filename}' no encontrado.")
-                return None
-            
-            # acceder al archivo con permisos de donde rb = read binary
-            with open(filename, 'rb') as file:
-                # Carga el objeto completo (incluyendo grid, entities, etc.)
-                return pickle.load(file)
-
-        except Exception as e:
-            print(f"Error al cargar el estado: {e}")
-            return None
-
 
     def guardar_estado_historial(self):
         """Serializa el estado actual (atributos de juego) y lo añade a la lista self.history."""
@@ -208,14 +177,7 @@ class MapManager:
         self.history = []
         self.current_history_index = -1
         self.time_instance = 0 # Reinicia el contador de tiempo
-
-    def listar_partidas_guardadas(self):
-        """Retorna una lista de nombres de archivos de partidas guardadas."""
-        if not os.path.exists(self.partida_dir):
-            return []
         
-        # Filtra solo los archivos con la extensión .partida
-        return [f for f in os.listdir(self.partida_dir) if f.endswith('.partida')]
 
     def cargar_partida_inicial(self, filename):
         """Carga un estado de partida guardado y lo aplica al MapManager actual."""
