@@ -132,43 +132,32 @@ class MapManager:
     def _guardar_ejecucion_completa(self, current_sim_state: str, overwrite=False):
         """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
 
+        filename_to_delete = None
+
         if overwrite and self.current_filename:
             base_dir = os.path.dirname(self.current_filename)
             old_filename = os.path.basename(self.current_filename)
+            filename_to_delete = os.path.join(base_dir, old_filename)
 
-            # Buscamos la primera parte del nombre (ej. 'ejecucion_20251112_')
-            name_parts = old_filename.split('_')
-            # Intentamos preservar el timestamp y el nombre base
-            if len(name_parts) >= 2: 
-                base_name = "_".join(name_parts[:-1]) # ej: 'ejecucion_20251112' o similar
-            else:
-                base_name = os.path.splitext(old_filename)[0] # Usa el nombre sin extensión
+            parts_before_time = old_filename.split('_T')[0]
 
-            # Formamos el nuevo nombre con el tiempo y estado actual
-            new_filename_base = f"{base_name}_T{self.time_instance}_{current_sim_state}.partida"
+            new_filename_base = f"{parts_before_time}_T{self.time_instance}_{current_sim_state}.partida"
             new_filepath = os.path.join(base_dir, new_filename_base)
             
-            # 3. Guardamos la ruta del nuevo archivo
+            # Guardamos la ruta del nuevo archivo
             self.current_filename = new_filepath
             filename_to_save = new_filepath
             
-            # 4. ELIMINAR EL ARCHIVO ANTIGUO
-            if os.path.exists(base_dir):
-                for f in os.listdir(base_dir):
-                    if f == old_filename:
-                        os.remove(os.path.join(base_dir, f))
-                        break
-            
             # Si se pide sobrescribir Y hay un nombre de archivo cargado, lo reutilizamos.
-            filename = self.current_filename
+            #filename = self.current_filename
         else:
             # Es una partida nueva, generamos un nombre de archivo único
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename_base = f"ejecucion_{timestamp}_T{self.time_instance}_{current_sim_state}.partida"
-            filename = os.path.join(self.partida_dir, filename_base)
-            self.current_filename = filename
+            filename_to_save = os.path.join(self.partida_dir, filename_base)
+            self.current_filename = filename_to_save # Asigna el nombre de la nueva partida.
         
-        self.current_filename = filename
+        #self.current_filename = filename
 
         self._saved_sim_state = current_sim_state
         
@@ -176,11 +165,17 @@ class MapManager:
         os.makedirs(self.partida_dir, exist_ok=True)
         
         try:
-            with open(filename, 'wb') as file:
-                # Guardamos el objeto MapManager COMPLETO (Grid, Entidades, Vehículos, Historial, etc.)
+            # Guardar el nuevo archivo
+            with open(filename_to_save, 'wb') as file:
                 pickle.dump(self, file)
-            print(f"Ejecución completa guardada: {filename}")
+            
+            # Eliminar el archivo antiguo SOLAMENTE si se guardó correctamente**
+            if filename_to_delete and os.path.exists(filename_to_delete):
+                os.remove(filename_to_delete)
+                print(f"Archivo antiguo eliminado: {os.path.basename(filename_to_delete)}")
+                
         except Exception as e:
+            # Si el guardado falla, no eliminamos nada.
             print(f"Error al guardar la ejecución completa: {e}")
     
 
