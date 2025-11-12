@@ -324,10 +324,13 @@ def main_loop():
                 
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
-                    mmanager._guardar_ejecucion_completa()
+                    
 
                     mmanager._saved_sim_state = SIMULATION_STATE
-                    mmanager.guardar_ejecucion_completa(SIMULATION_STATE)
+                    
+                    if mmanager.time_instance != 0:
+                        mmanager._guardar_ejecucion_completa(SIMULATION_STATE, overwrite = True)
+
                     # 1. VERIFICAR SI LA TECLA MODIFICADORA ESTÁ PRESIONADA
                     teclas = pygame.key.get_pressed()
                     
@@ -395,7 +398,6 @@ def main_loop():
                                 veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
                         # -------------------------------------------------------------
                         
-                        print(f"[PLAYING] Simulación Iniciada (Time Instance: {mmanager.time_instance}).")
 
                 elif botones["Stop"]["rect"].collidepoint(mouse_pos):
                     # BOTÓN STOP
@@ -417,7 +419,6 @@ def main_loop():
                         if mmanager.load_previous_state_from_history():
                             # El objeto mmanager se ha modificado in-place
                             flota_total = mmanager.vehicles # Sincronizar la flota
-                            print(f"[REPLAY] Retrocedido a Time Instance: {mmanager.time_instance}.")
 
                     # Si estamos al principio de la simulacion (no hay eventos anteriores)
                     elif mmanager.current_history_index == 0:
@@ -438,8 +439,6 @@ def main_loop():
                         if mmanager.load_next_state_from_history():
                             # El objeto mmanager se ha modificado in-place
                             flota_total = mmanager.vehicles # Sincronizar la flota
-
-                            print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
                             
                     # Si no hay estado futuro, avanza la simulación un paso (TICK manual)
                     else:
@@ -454,8 +453,6 @@ def main_loop():
                         if resultado_tick == "SIMULATION_ENDED":
                             SIMULATION_STATE = "TERMINADO"
                             print("[SIMULACIÓN TERMINADA]")
-                            
-                        print(f"[TICK] Avanzado un paso (Time Instance: {mmanager.time_instance}).")
                                                                 
         
         # 2. Lógica de Actualización (Tick del juego)
@@ -467,17 +464,11 @@ def main_loop():
             # Solo ejecuta la simulación si se alcanza el ratio deseado
             if frame_counter >= GAME_TICK_RATE:
 
-                #print("historial>0")
-
                 if mmanager.current_history_index < len(mmanager.history) - 1:
-
-                    print("historial>0")
 
                     if mmanager.load_next_state_from_history():
                         # El objeto mmanager se ha modificado in-place
                         flota_total = mmanager.vehicles # Sincronizar la flota
-
-                        print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
 
                 else:
 
@@ -489,14 +480,13 @@ def main_loop():
                         SIMULATION_STATE = "TERMINADO"
                         if not mensaje_simulacion_mostrado:
 
-                            mmanager._guardar_partida_inicial()
-
                             # La lógica de guardar ya está en game_engine.py
                             print("[SIMULACIÓN TERMINADA]")
                             mensaje_simulacion_mostrado = True
 
-                            resultado_final = "Empate" if mmanager.puntajes['Rojo'] == mmanager.puntajes['Azul'] else "Rojo" if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul'] else "Azul"
-                            mmanager._guardar_resultado_partida(resultado_final)
+                            if not mmanager.is_replay:
+                                resultado_final = "Empate" if mmanager.puntajes['Rojo'] == mmanager.puntajes['Azul'] else "Rojo" if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul'] else "Azul"
+                                mmanager._guardar_resultado_partida(resultado_final)
                         
                         print("[SIMULACIÓN TERMINADA]")
                         mensaje_simulacion_mostrado = True

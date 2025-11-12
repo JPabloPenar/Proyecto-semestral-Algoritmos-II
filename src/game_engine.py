@@ -160,7 +160,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
         mmanager._guardar_resultado_partida(resultado_final)
 
         mmanager._saved_sim_state = "TERMINADO"
-        mmanager._guardar_ejecucion_completa(mmanager._saved_sim_state)
+        mmanager._guardar_ejecucion_completa(mmanager._saved_sim_state, overwrite = True)
 
         # Retornar el resultado para ser usado por la función de visualización/control
         return "SIMULATION_ENDED"

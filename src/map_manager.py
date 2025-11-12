@@ -96,7 +96,8 @@ class MapManager:
             # acceder al archivo con permisos de donde rb = read binary
             with open(filename, 'rb') as file:
                 # Carga el objeto completo (incluyendo grid, entities, etc.)
-                return pickle.load(file) 
+                return pickle.load(file)
+
         except Exception as e:
             print(f"Error al cargar el estado: {e}")
             return None
@@ -128,17 +129,25 @@ class MapManager:
         self.history.append(state_bytes)
         self.current_history_index = len(self.history) - 1
 
-    def _guardar_ejecucion_completa(self, current_sim_state: str):
+    def _guardar_ejecucion_completa(self, current_sim_state: str, overwrite=False):
         """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
+
+        if overwrite and self.current_filename:
+            # Si se pide sobrescribir Y hay un nombre de archivo cargado, lo reutilizamos.
+            filename = self.current_filename
+        else:
+            # Es una partida nueva, generamos un nombre de archivo único
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}.partida"
+            filename = os.path.join(self.partida_dir, filename_base)
+        
+        self.current_filename = filename
 
         self._saved_sim_state = current_sim_state
         
         # Crea la carpeta si no existe
         os.makedirs(self.partida_dir, exist_ok=True)
         
-        # Generar un nombre de archivo único basado en la hora y el tiempo final
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(self.partida_dir, f"ejecucion_{timestamp}_T{self.time_instance}.partida")
 
         # NO VACIAR EL HISTORIAL. Guardar el objeto tal cual está después de la simulación.
         # Esto incluye self.history con todos los pasos serializados.
@@ -215,6 +224,14 @@ class MapManager:
     def cargar_partida_inicial(self, filename):
         """Carga un estado de partida guardado y lo aplica al MapManager actual."""
         filepath = os.path.join(self.partida_dir, filename)
+
+        self.current_filename = filepath
+
+        if self._saved_sim_state == "TERMINADO":
+            self.is_replay = True
+        
+        else:
+            self.is_replay = False
         
         if not os.path.exists(filepath):
             print(f"Error: Archivo de partida '{filename}' no encontrado.")
@@ -342,6 +359,9 @@ class MapManager:
         self.recursos_restantes = 0
 
         self._saved_sim_state = "INITIALIZED"
+        self.is_replay = False
+
+        self.current_filename = None
 
 
     def _get_random_pos(self):
