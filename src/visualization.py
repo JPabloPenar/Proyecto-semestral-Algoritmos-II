@@ -356,7 +356,7 @@ def main_loop():
 
                     mmanager.reiniciar_puntajes()
                     mensaje_simulacion_mostrado = False
-                    # BOTÓN INIT: Distribuye minass y recursos si no está corriendo
+                    
                     if SIMULATION_STATE != "PLAYING":
                         # 1. Resetear y Reposicionar los vehículos
                         flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
@@ -456,7 +456,11 @@ def main_loop():
             # Solo ejecuta la simulación si se alcanza el ratio deseado
             if frame_counter >= GAME_TICK_RATE:
 
+                #print("historial>0")
+
                 if mmanager.current_history_index < len(mmanager.history) - 1:
+
+                    print("historial>0")
 
                     if mmanager.load_next_state_from_history():
                         # El objeto mmanager se ha modificado in-place
@@ -473,9 +477,18 @@ def main_loop():
                     if resultado_tick == "SIMULATION_ENDED":
                         SIMULATION_STATE = "TERMINADO"
                         if not mensaje_simulacion_mostrado:
+
+                            mmanager._guardar_partida_inicial()
+
                             # La lógica de guardar ya está en game_engine.py
                             print("[SIMULACIÓN TERMINADA]")
                             mensaje_simulacion_mostrado = True
+
+                            resultado_final = "Empate" if mmanager.puntajes['Rojo'] == mmanager.puntajes['Azul'] else "Rojo" if mmanager.puntajes['Rojo'] > mmanager.puntajes['Azul'] else "Azul"
+                            mmanager._guardar_resultado_partida(resultado_final)
+                        
+                        print("[SIMULACIÓN TERMINADA]")
+                        mensaje_simulacion_mostrado = True
                         
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
