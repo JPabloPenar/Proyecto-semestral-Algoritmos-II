@@ -325,6 +325,8 @@ def main_loop():
                 # --- Lógica de Botones ---
                 if botones["Init"]["rect"].collidepoint(mouse_pos):
 
+                    mmanager._saved_sim_state = SIMULATION_STATE
+                    mmanager.guardar_ejecucion_completa(SIMULATION_STATE)
                     # 1. VERIFICAR SI LA TECLA MODIFICADORA ESTÁ PRESIONADA
                     teclas = pygame.key.get_pressed()
                     
@@ -342,16 +344,20 @@ def main_loop():
                         
                         if selected_filename:
                             # Sincronizamos la flota si la carga es exitosa
-                            if mmanager.cargar_partida_inicial(selected_filename):
+                            carga_exitosa, saved_sim_state = mmanager.cargar_partida_inicial(selected_filename)
+                            if carga_exitosa:
                                 flota_total = mmanager.vehicles
-                                SIMULATION_STATE = "INITIALIZED"
-                                mmanager.current_history_index = 0
-                                if mmanager.history:
+
+                                if saved_sim_state == "TERMINADO":
+                                    SIMULATION_STATE = "INITIALIZED"
+                                    mmanager.current_history_index = 0
                                     mmanager._load_state_from_bytes(mmanager.history[0])
-                                    flota_total = mmanager.vehicles
-                                print("[CARGA EXITOSA] Partida cargada y lista para reanudar.")
-                            else:
-                                print("[CARGA FALLIDA] El archivo seleccionado no se pudo cargar.")
+
+
+                                elif saved_sim_state == "STOPPED":
+                                    mmanager.current_history_index = len(mmanager.history) - 1
+                                    mmanager._load_state_from_bytes(mmanager.history[-1])
+
 
                         else:
                             print("[CARGA CANCELADA] No se seleccionó ningún archivo.")
