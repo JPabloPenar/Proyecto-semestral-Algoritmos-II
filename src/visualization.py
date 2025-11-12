@@ -372,6 +372,8 @@ def main_loop():
                     mensaje_simulacion_mostrado = False
                     
                     if SIMULATION_STATE != "PLAYING":
+                        mmanager.current_filename = None
+                        
                         # 1. Resetear y Reposicionar los vehículos
                         flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
                         flota_total = flota_base1 + flota_base2

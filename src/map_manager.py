@@ -132,52 +132,32 @@ class MapManager:
     def _guardar_ejecucion_completa(self, current_sim_state: str, overwrite=False):
         """Guarda el estado COMPLETO del MapManager, incluyendo todo el historial de pasos, en una nueva carpeta."""
 
-        filename_to_delete = None
-
         if overwrite and self.current_filename:
-            base_dir = os.path.dirname(self.current_filename)
-            old_filename = os.path.basename(self.current_filename)
-            filename_to_delete = os.path.join(base_dir, old_filename)
-
-            parts_before_time = old_filename.split('_T')[0]
-
-            new_filename_base = f"{parts_before_time}_T{self.time_instance}_{current_sim_state}.partida"
-            new_filepath = os.path.join(base_dir, new_filename_base)
-            
-            # Guardamos la ruta del nuevo archivo
-            self.current_filename = new_filepath
-            filename_to_save = new_filepath
-            
             # Si se pide sobrescribir Y hay un nombre de archivo cargado, lo reutilizamos.
-            #filename = self.current_filename
+            filename = self.current_filename
+
         else:
             # Es una partida nueva, generamos un nombre de archivo único
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}_{current_sim_state}.partida"
-            filename_to_save = os.path.join(self.partida_dir, filename_base)
-            self.current_filename = filename_to_save # Asigna el nombre de la nueva partida.
-        
-        #self.current_filename = filename
+            filename_base = f"ejecucion_{timestamp}_T{self.time_instance}.partida"
+            filename = os.path.join(self.partida_dir, filename_base)
 
+        self.current_filename = filename
         self._saved_sim_state = current_sim_state
-        
+
         # Crea la carpeta si no existe
         os.makedirs(self.partida_dir, exist_ok=True)
-        
+
         try:
-            # Guardar el nuevo archivo
-            with open(filename_to_save, 'wb') as file:
+            with open(filename, 'wb') as file:
+                # Guardamos el objeto MapManager COMPLETO (Grid, Entidades, Vehículos, Historial, etc.)
                 pickle.dump(self, file)
-            
-            # Eliminar el archivo antiguo SOLAMENTE si se guardó correctamente**
-            if filename_to_delete and os.path.exists(filename_to_delete):
-                os.remove(filename_to_delete)
-                print(f"Archivo antiguo eliminado: {os.path.basename(filename_to_delete)}")
-                
+            print(f"Ejecución completa guardada: {filename}")
+
         except Exception as e:
-            # Si el guardado falla, no eliminamos nada.
             print(f"Error al guardar la ejecución completa: {e}")
     
+
 
     def _load_state_from_bytes(self, state_bytes):
         """Deserializa un estado de bytes y actualiza los atributos de juego del objeto MapManager actual."""
@@ -190,6 +170,7 @@ class MapManager:
                 setattr(self, attr, value)
         #self._actualizar_grid_minas()
 
+
     def load_previous_state_from_history(self):
         """Decrementa el índice y deserializa el estado anterior si es posible."""
         if self.current_history_index > 0:
@@ -199,6 +180,7 @@ class MapManager:
             return True
         return False
     
+
     def load_next_state_from_history(self):
         """Incrementa el índice y deserializa el estado siguiente si es posible."""
         if self.current_history_index < len(self.history) - 1:
