@@ -10,7 +10,6 @@ BASE_MIN_ROW = 10
 BASE_MAX_ROW = 79
 
 def update_simulation(mmanager: MapManager, flota_total: list) -> str:
-    
     mmanager.update_time()
 
     flota_azul = [
@@ -34,7 +33,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
     escape_camion(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
     auto_defensor(flota_roja, flota_azul, mmanager.grid_maestra, mmanager)
     
-    
     for veh in flota_total:
         
         if veh.estado != "activo" and veh.estado != "en_cooldown":
@@ -52,13 +50,13 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                 veh.estado = "activo"
 
         # 2. Movimiento (si hay camino)
-        # ... (código que maneja el movimiento, colisión con minas, y marcaje)
+        # (código que maneja el movimiento, colisión con minas, y marcaje)
         if veh.camino:
             # Se limpia la celda ANTERIOR antes de mover
             mmanager._marcar_vehiculo(veh, valor=0) 
             veh.mover_por_camino()
             
-            # --- CORRECCIÓN DE COLISIÓN DE MINAS (Chequeo ANTES de marcar) ---
+            # COLISIÓN DE MINAS (Chequeo ANTES de marcar)
             collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and collision_type.startswith("mina"):
@@ -71,7 +69,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
 
             # Se marca la celda NUEVA después de mover (Solo si no explotó con mina)
             mmanager._marcar_vehiculo(veh) 
-        
 
         # 3. Lógica de Objetivos
 
@@ -102,7 +99,7 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                 veh.camino = []
 
         # C) Si no tiene objetivo actual O llegó a su objetivo
-        # SÓLO ocurra si el vehículo está realmente en la celda final Y camino está vacío.
+        # SÓLO ocurre si el vehículo está realmente en la celda final Y camino está vacío.
         veh.actualizar_objetivo(mmanager.grid_maestra)
 
         # D) Si no tiene objetivo actual: Debe buscar uno (si le quedan viajes) o volver a base.
@@ -128,7 +125,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                             veh.search_cooldown = 1
                             # No establecemos el estado aquí, se establecerá 'en_cooldown' en el siguiente tick.
 
-
                 # --- LÓGICA DE VOLVER A BASE (Si agotó viajes o la búsqueda anterior no lo movió) ---
                 if veh.objetivo_actual is None and not is_in_base: 
                     veh.volver_a_base(mmanager.grid_maestra)
@@ -137,16 +133,11 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     if not veh.camino and hasattr(veh, 'search_cooldown'): 
                         veh.search_cooldown = 1
             # Si está en cooldown, el 'continue' inicial lo salta.
-            
-            
-            # La bandera cooldown_just_set ya no se necesita aquí porque el estado 'en_cooldown'
-            # y el 'continue' al inicio del bucle manejan la espera.
-
 
         # 4. Lógica de Colisión (solo si está activo)
         if veh.estado == "activo":
             
-            # ... (Lógica de colisiones con recursos y vehículos)
+            # Lógica de colisiones con recursos y vehículos
             collision_type, entity = mmanager.check_vehicle_collisions(veh)
             
             if collision_type and entity:
@@ -185,8 +176,6 @@ def update_simulation(mmanager: MapManager, flota_total: list) -> str:
                     mmanager._marcar_vehiculo(entity, valor=0)
                     entity.explotar() # Cambia estado a 'inactivo'
                     entity.camino = []
-                                                        
-
     return
 
 

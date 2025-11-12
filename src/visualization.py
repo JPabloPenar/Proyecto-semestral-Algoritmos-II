@@ -5,10 +5,7 @@ from map_manager import MapManager
 from mines import Mina, MinaT1, MinaT2, MinaG1
 from resources import Recurso, Persona
 from vehicles import jeep, moto, camion, auto
-
-# IMPORTAR el nuevo módulo de lógica del juego
 from game_engine import update_simulation, update_and_get_next_state 
-
 
 # --- Configuración y Constantes ---
 pygame.init()
@@ -49,7 +46,7 @@ reloj = pygame.time.Clock()
 SIMULATION_FPS = 60 # 60 ticks por segundo
 SIMULATION_STATE = "STOPPED" # STOPPED, INITIALIZED, PLAYING
 
-# NUEVAS CONSTANTES PARA CONTROLAR LA VELOCIDAD DE LA LÓGICA
+# CONSTANTES PARA CONTROLAR LA VELOCIDAD DE LA LÓGICA
 GAME_TICK_RATE = 5 # Lógica del juego se ejecuta cada 10 frames (60 FPS / 10 = 6 ticks/segundo)
 # -------------------------------------------------------------
 
@@ -181,7 +178,6 @@ def inicializar_equipos(rect_base1, rect_base2):
     return flota_1, flota_2
 
 # Inicializar las flotas con los vehículos creados
-#Esto se podria sacar si hacemos que haya que apretar init cuando se abre la ventana de la simulacion
 flota_base1, flota_base2 = inicializar_equipos(rect_base1, rect_base2)
 flota_total = flota_base1 + flota_base2
 
@@ -207,7 +203,7 @@ def draw_entities(surface, mmanager):
             x, y = entity.columna * 5, entity.fila * 5
             radio = entity.radio # Radio de efecto (no de dibujo)
             
-            # NUEVO TAMAÑO VISUAL DE LAS MINAS
+            # TAMAÑO VISUAL DE LAS MINAS
             VISUAL_SIZE = 40
             
             if isinstance(entity, MinaT1): # Horizontal (Mina T1)
@@ -263,7 +259,7 @@ def main_loop():
     global SIMULATION_STATE, mmanager, flota_total, flota_base1, flota_base2
     ejecutando = True
     
-    # Inicialice el contador de frames para controlar el tick de la lógica
+    # Contador de frames para controlar el tick de la lógica
     frame_counter = 0 
     
     mmanager.distribute_entities() # Inicialización forzada de minas/recursos al inicio
@@ -306,12 +302,11 @@ def main_loop():
                     if SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "STOPPED":
                         SIMULATION_STATE = "PLAYING"
                         
-                        # **AGREGADO:** Inicializar la búsqueda de objetivos al presionar Play
+                        # Inicializar la búsqueda de objetivos al presionar Play
                         for veh in flota_total:
                             # Forzar la búsqueda del recurso más cercano si no tiene un objetivo actual
                             if veh.objetivo_actual is None and veh.viajesActuales > 0:
                                 veh.buscar_recurso_mas_cercano(mmanager.grid_maestra)
-                        # -------------------------------------------------------------
                         
                         print(f"[PLAYING] Simulación Iniciada (Time Instance: {mmanager.time_instance}).")
 
@@ -333,7 +328,6 @@ def main_loop():
                     elif SIMULATION_STATE == "STOPPED" or SIMULATION_STATE == "INITIALIZED" or SIMULATION_STATE == "TERMINADO":
 
                         if mmanager.load_previous_state_from_history():
-                            # El objeto mmanager se ha modificado in-place
                             flota_total = mmanager.vehicles # Sincronizar la flota
                             print(f"[REPLAY] Retrocedido a Time Instance: {mmanager.time_instance}.")
 
@@ -354,7 +348,6 @@ def main_loop():
                     elif mmanager.current_history_index < len(mmanager.history) - 1:
 
                         if mmanager.load_next_state_from_history():
-                            # El objeto mmanager se ha modificado in-place
                             flota_total = mmanager.vehicles # Sincronizar la flota
 
                             print(f"[REPLAY] Avanzado a Time Instance: {mmanager.time_instance}.")
@@ -362,7 +355,7 @@ def main_loop():
                     # Si no hay estado futuro, avanza la simulación un paso (TICK manual)
                     else:
                         
-                        # **LLAMA a la función segregada para avanzar un tick**
+                        # Llama a la función segregada para avanzar un tick*
                         mmanager, SIMULATION_STATE,_ = update_and_get_next_state(mmanager, flota_total)
                         
                         mmanager.guardar_estado_historial()
@@ -373,14 +366,12 @@ def main_loop():
 
         # 2. Lógica de Actualización (Tick del juego)
         if SIMULATION_STATE == "PLAYING":
-            
-            # --- NUEVA LÓGICA DE CONTROL DE TICK ---
             frame_counter += 1
             
             # Solo ejecuta la simulación si se alcanza el ratio deseado
             if frame_counter >= GAME_TICK_RATE:
                 
-                # **LLAMA a la función segregada para avanzar un tick**
+                # Llama a la función segregada para avanzar un tick*
                 update_simulation(mmanager, flota_total)
 
                 mmanager.guardar_estado_historial()
@@ -388,7 +379,6 @@ def main_loop():
                 # Reiniciar el contador para el siguiente tick
                 frame_counter = 0 
             # --------------------------------------
-                                                                
         
         # --- Verificar condiciones de fin de simulación ---
         if SIMULATION_STATE != "TERMINADO":
@@ -402,7 +392,7 @@ def main_loop():
                         print("[GANADOR] Ha ganado el equipo azul")
                     mensaje_simulacion_mostrado = True
         
-        # 3. Dibujo (Esta sección se mantiene igual)
+        # 3. Dibujo
         ventana.fill(BLANCO)
 
         # Dibujar Bases y Terreno
